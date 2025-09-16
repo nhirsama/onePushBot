@@ -8,6 +8,12 @@ import (
 	"path/filepath"
 )
 
+type Config struct {
+	ApiUrl string `json:"apiUrl"`
+	Token  string `json:"token"`
+	Master string `json:"master"`
+}
+
 func SetConfig() error {
 	var filename string = "./data/config.json"
 	var configMap map[string]interface{}

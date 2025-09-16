@@ -10,12 +10,6 @@ import (
 	"net/url"
 )
 
-type Config struct {
-	ApiUrl string `json:"apiUrl"`
-	Token  string `json:"token"`
-	Master string `json:"master"`
-}
-
 type MessageData struct {
 	Text string `json:"text"`
 }
