@@ -31,7 +31,7 @@ func main() {
 	}
 
 	// 构造 WebSocket URL
-	u := url.URL{Scheme: "ws", Host: config.ApiUrl, Path: "/ws", RawQuery: "access_token=" + config.Token}
+	u := url.URL{Scheme: "wss", Host: config.ApiUrl, Path: "/ws", RawQuery: "access_token=" + config.Token}
 	log.Printf("Connecting to %s", u.String())
 
 	// 建立连接
