@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/nhirsama/onePushBot/global"
 	"github.com/nhirsama/onePushBot/pkg"
 )
 
@@ -40,17 +41,25 @@ func main() {
 		log.Fatal("连接失败:", err)
 	}
 	defer c.Close()
-
+	global.C = c
 	log.Println("WebSocket 已连接")
-
 	// 循环读取消息
+	readLoop()
+}
+
+func readLoop() {
+
+	var errorCount int
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := global.C.ReadMessage()
 		if err != nil {
-			log.Println("读取消息出错:", err)
-			time.Sleep(1 * time.Second)
+			log.Printf("读取消息出错,累计连续错误:%d次。错误信息：%s\n", errorCount, err)
+			time.Sleep(10 * time.Second)
+			errorCount++
+			if errorCount > 10 {
+				log.Fatalf("读取消息出错")
+			}
 		}
-		//log.Printf("收到消息: %s", message)
-		pkg.HandleMessage(message, c)
+		go pkg.HandleMessage(message, global.C)
 	}
 }
