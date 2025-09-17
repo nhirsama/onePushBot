@@ -1,8 +1,6 @@
 package api
 
 import (
-	"log"
-
 	"github.com/gorilla/websocket"
 )
 
@@ -19,10 +17,7 @@ func Send_like(user_id int, times int, echo string, c *websocket.Conn) error {
 
 	body := send_like{"send_like", params{user_id, times, echo}}
 	err := c.WriteJSON(body)
-	if err != nil {
-		log.Println(err)
-	}
-	return nil
+	return err
 }
 
 /*

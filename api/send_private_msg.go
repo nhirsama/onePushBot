@@ -1,6 +1,8 @@
 package api
 
-func Send_private_msg(user_id int) error {
+import "github.com/gorilla/websocket"
+
+func Send_private_msg_text(user_id int, text string, echo string, c *websocket.Conn) error {
 	type data struct {
 		Text string `json:"text"`
 	}
@@ -17,5 +19,10 @@ func Send_private_msg(user_id int) error {
 		Action string `json:"action"`
 		Parmes params `json:"params"`
 	}
-	body := send_private_msg{"send_private_msg", params{}}
+	body := send_private_msg{"send_private_msg",
+		params{user_id, echo, make([]message, 1)}}
+	body.Parmes.Message[0].Type = "text"
+	body.Parmes.Message[0].Data.Text = text
+	err := c.WriteJSON(body)
+	return err
 }
