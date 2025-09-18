@@ -2,19 +2,21 @@ package pkg
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 
-	"github.com/gorilla/websocket"
-	"github.com/nhirsama/onePushBot/api"
+	"github.com/nhirsama/onePushBot/act"
 	"github.com/nhirsama/onePushBot/global"
 )
 
+// Deprecated: 请使用global的统一解析结构体
 // BaseMsg 基础消息，只检测 post_type
 type BaseMsg struct {
 	PostType string `json:"post_type"`
 }
 
-// 消息事件
+// Deprecated: 请使用global的统一解析结构体
+// MessageEvent 消息事件
 type MessageEvent struct {
 	PostType    string `json:"post_type"`
 	MessageType string `json:"message_type"`
@@ -22,54 +24,37 @@ type MessageEvent struct {
 	Message     string `json:"message"`
 }
 
-func HandleMessage(msg []byte, c *websocket.Conn) {
-	// 第一步：解析公共字段
-	var base BaseMsg
-	if err := json.Unmarshal(msg, &base); err != nil {
-		log.Println("解析基础消息失败:", err)
+func HandleMessage(msg []byte) {
+	var messStruct global.Message
+	if err := json.Unmarshal(msg, &messStruct); err != nil {
+		var unmarshalTypeError *json.UnmarshalTypeError
+		if errors.As(err, &unmarshalTypeError) {
+			var apiResponse global.ApiResponse
+			if err := json.Unmarshal(msg, &apiResponse); err != nil {
+				log.Printf("不是我草这接收的json怎么连个共同字段都没有 %s", msg)
+			}
+			if ch, ok := global.ResponseMap.Load(apiResponse.Echo); ok {
+				ch.(chan []byte) <- msg
+			} else {
+				log.Printf("接收到未追踪的返回值：%s", msg)
+			}
+		}
 		return
 	}
 
-	// 第二步：根据 post_type 分派
-	switch base.PostType {
+	switch messStruct.PostType {
 	case "message":
-		messageParse(msg, c)
+		messageParse(messStruct)
 		log.Println(string(msg))
 	case "meta_event":
 		log.Println("收到元事件:", string(msg))
 	default:
-		type response struct {
-			Echo string `json:"echo"`
-		}
-		var reva response
-		if err := json.Unmarshal(msg, &reva); err != nil {
-			log.Println("解析返回值失败:", err)
-			return
-		}
-		if ch, ok := global.ResponseMap.Load(reva.Echo); ok {
-			ch.(chan []byte) <- msg
-		} else {
-			log.Printf("接收到未追踪的返回值：%s", reva.Echo)
-		}
+		log.Printf("接收到未定义的信息:%s\n", string(msg))
 	}
 }
 
-func messageParse(msg []byte, c *websocket.Conn) {
-	type messagePreParse struct {
-		Message_type string `json:"message_type"`
-		Sender       string `json:"sender"`
-		Sub_type     string `json:"sub_type"`
-		User_id      int64  `json:"user_id"`
-		Message_id   int64  `json:"message_id"`
-	}
-	var message messagePreParse
-	if err := json.Unmarshal(msg, &message); err != nil {
-		//可以给特定人的消息回复棒棒糖表情
-		if message.User_id == 0 || message.User_id == 1 {
-			go api.Set_msg_emoji_like(message.Message_id, 147, true)
-			//可以给特定人的消息回复爱心表情
-		} else if message.User_id == 0 || message.User_id == 1 {
-			go api.Set_msg_emoji_like(message.Message_id, 66, true)
-		}
+func messageParse(message global.Message) {
+	if message.MessageType == "group" {
+		act.AutoSetMsgEmojiLike(message)
 	}
 }

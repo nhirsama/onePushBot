@@ -8,12 +8,16 @@ import (
 	"path/filepath"
 )
 
+// Deprecated: 请使用 viper.GitString 代替 Config。
+// Config 已被废弃
 type Config struct {
 	ApiUrl string `json:"apiUrl"`
 	Token  string `json:"token"`
 	Master string `json:"master"`
 }
 
+// Deprecated: 请使用 viper.GitString 代替 SetConfig。
+// SetConfig 已被废弃
 func SetConfig() error {
 	var filename string = "./data/config.json"
 	var configMap map[string]interface{}

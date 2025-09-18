@@ -1,38 +1,21 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/nhirsama/onePushBot/global"
 	"github.com/nhirsama/onePushBot/pkg"
+	"github.com/spf13/viper"
 )
 
 func main() {
-	//创建配置文件
-	data, err := os.ReadFile("data/config.json")
-	if err != nil {
-		log.Println(err)
-		err = pkg.SetConfig()
-		if err != nil {
-			log.Fatal(err)
-		}
-		data, err = os.ReadFile("data/config.json")
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	var config pkg.Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		log.Fatal(err)
-	}
-
+	const configFile = "./data/config.yaml"
+	viper.SetConfigName(configFile)
 	// 构造 WebSocket URL
-	u := url.URL{Scheme: "wss", Host: config.ApiUrl, Path: "/ws", RawQuery: "access_token=" + config.Token}
+	u := url.URL{Scheme: "wss", Host: viper.GetString("apiUrl"), Path: "/ws", RawQuery: "access_token=" + viper.GetString("token")}
 	log.Printf("Connecting to %s", u.String())
 
 	// 建立连接
@@ -60,6 +43,6 @@ func readLoop() {
 				log.Fatalf("读取消息出错")
 			}
 		}
-		go pkg.HandleMessage(message, global.C)
+		go pkg.HandleMessage(message)
 	}
 }
