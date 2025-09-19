@@ -9,13 +9,13 @@ import (
 	"github.com/nhirsama/onePushBot/global"
 )
 
-func Set_msg_emoji_like(message_id int64, emoji_id int, set bool) {
+func (w *WebSocketMessage) SetMsgEmojiLike(message_id int64, emoji_id int, set bool) {
 	type params struct {
 		Message_id int64 `json:"message_id"`
 		Emoji_id   int   `json:"emoji_id"`
 		Set        bool  `json:"set"`
 	}
-	type set_msg_emoji_like struct {
+	type setMsgEmojiLike struct {
 		Action string `json:"action"`
 		Echo   string `json:"echo"`
 		Parmes params `json:"params"`
@@ -28,7 +28,7 @@ func Set_msg_emoji_like(message_id int64, emoji_id int, set bool) {
 			global.ResponseMap.Store(echo, ch)
 			defer global.ResponseMap.Delete(echo)
 
-			body := set_msg_emoji_like{
+			body := setMsgEmojiLike{
 				"set_msg_emoji_like",
 				echo,
 				params{
@@ -36,7 +36,7 @@ func Set_msg_emoji_like(message_id int64, emoji_id int, set bool) {
 					emoji_id,
 					set,
 				}}
-			err := global.C.WriteJSON(body)
+			err := w.conn.WriteJSON(body)
 			if err != nil {
 				log.Println(err)
 			}

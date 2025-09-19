@@ -8,11 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 )
 
-var C *websocket.Conn
 var Heartbeat int64
 var ResponseMap sync.Map
 

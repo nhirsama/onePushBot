@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/nhirsama/onePushBot/act"
+	"github.com/nhirsama/onePushBot/api"
 	"github.com/nhirsama/onePushBot/global"
 )
 
@@ -24,7 +24,7 @@ type MessageEvent struct {
 	Message     string `json:"message"`
 }
 
-func HandleMessage(msg []byte) {
+func HandleMessage(msg []byte, w *api.WebSocketMessage) {
 	var messStruct global.Message
 	if err := json.Unmarshal(msg, &messStruct); err != nil {
 		var unmarshalTypeError *json.UnmarshalTypeError
@@ -44,7 +44,7 @@ func HandleMessage(msg []byte) {
 
 	switch messStruct.PostType {
 	case "message":
-		messageParse(messStruct)
+		messageParse(messStruct, w)
 		log.Println(string(msg))
 	case "meta_event":
 		log.Println("收到元事件:", string(msg))
@@ -53,8 +53,8 @@ func HandleMessage(msg []byte) {
 	}
 }
 
-func messageParse(message global.Message) {
+func messageParse(message global.Message, w *api.WebSocketMessage) {
 	if message.MessageType == "group" {
-		act.AutoSetMsgEmojiLike(message)
+		w.AutoSetMsgEmojiLike(message)
 	}
 }
