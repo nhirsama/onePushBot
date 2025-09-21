@@ -33,7 +33,7 @@ func HandleMessage(msg []byte, w *api.WebSocketMessage) {
 			if err := json.Unmarshal(msg, &apiResponse); err != nil {
 				log.Printf("不是我草这接收的json怎么连个共同字段都没有 %s", msg)
 			}
-			if ch, ok := global.ResponseMap.Load(apiResponse.Echo); ok {
+			if ch, ok := api.ResponseMap.Load(apiResponse.Echo); ok {
 				ch.(chan []byte) <- msg
 			} else {
 				log.Printf("接收到未追踪的返回值：%s", msg)

@@ -12,6 +12,8 @@ import (
 )
 
 var Heartbeat int64
+
+// Deprecated: 请使用api对象内部的ResponseMap
 var ResponseMap sync.Map
 
 func init() {
@@ -57,7 +59,7 @@ func init() {
 		}
 	}
 	fmt.Printf("%+v\n", viper.AllSettings())
-	fmt.Printf("%+v\n", viper.Get("autoSetMsgEmojiLikeSet"))
+	//fmt.Printf("%+v\n", viper.Get("autoSetMsgEmojiLikeSet"))
 	err := viper.UnmarshalKey("autoSetMsgEmojiLikeSet", &AutoSetMsgEmojiLikeSet)
 	if err != nil {
 		log.Println(err)

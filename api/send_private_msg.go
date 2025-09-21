@@ -26,3 +26,7 @@ func Send_private_msg_text(user_id int, text string, echo string, c *websocket.C
 	err := c.WriteJSON(body)
 	return err
 }
+
+//func (w *WebSocketMessage) SendPrivateMsg(user_id int, text string) error {
+//
+//}
