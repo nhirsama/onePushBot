@@ -5,20 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 )
 
-var Heartbeat int64
-
-// Deprecated: 请使用api对象内部的ResponseMap
-var ResponseMap sync.Map
-
 func init() {
 	viper.Reset()
-	Heartbeat = time.Now().Unix()
 	const configFile = "./data/config.yaml"
 	const configPath = "./data"
 	viper.SetConfigName("config")
@@ -58,12 +50,7 @@ func init() {
 			}
 		}
 	}
-	fmt.Printf("%+v\n", viper.AllSettings())
-	//fmt.Printf("%+v\n", viper.Get("autoSetMsgEmojiLikeSet"))
-	err := viper.UnmarshalKey("autoSetMsgEmojiLikeSet", &AutoSetMsgEmojiLikeSet)
-	if err != nil {
-		log.Println(err)
-	}
+
 }
 
 // StatusStruct 心跳状态

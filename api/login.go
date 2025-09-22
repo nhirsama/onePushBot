@@ -2,26 +2,35 @@ package api
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketMessage struct {
-	conn *websocket.Conn
-	url  string
+	mu                                 sync.Mutex
+	conn                               *websocket.Conn
+	url                                string
+	WriteChan                          chan commonRequest
+	readGoroutineClose                 chan struct{}
+	heartbeat                          chan struct{}
+	readMessageConcurrentGoroutineDone chan struct{}
 }
 
 func NewWebSocketMessage(url string) *WebSocketMessage {
 	var w WebSocketMessage
 	w.url = url
 	w.reLogin()
+	w.WriteChan = make(chan commonRequest, 100)
 	return &w
 }
 func (w *WebSocketMessage) login() error {
 	var err error
-	log.Printf("正在连接至 %s", w.url)
+	log.Printf("正在连接至 %s\n", w.url)
+	w.mu.Lock()
 	w.conn, _, err = websocket.DefaultDialer.Dial(w.url, nil)
+	w.mu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -33,7 +42,7 @@ func (w *WebSocketMessage) reLogin() {
 	err := w.login()
 	if err != nil {
 		for reLoginCount := 1; ; reLoginCount++ {
-			log.Printf("连接失败，正在重新连接第%d次。%s", reLoginCount, err)
+			log.Printf("连接失败，正在重新连接第%d次。%s\n", reLoginCount, err)
 			err = w.login()
 			if err != nil {
 				return
@@ -49,6 +58,7 @@ func (w *WebSocketMessage) Close() {
 	}
 }
 
+// Deprecated: 与并发安全设计冲突，请使用 ReadMessageConcurrent
 func (w *WebSocketMessage) ReadMessage() (messageType int, p []byte) {
 	var err error
 	var errorCount int

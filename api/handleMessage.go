@@ -1,11 +1,10 @@
-package pkg
+package api
 
 import (
 	"encoding/json"
 	"errors"
 	"log"
 
-	"github.com/nhirsama/onePushBot/api"
 	"github.com/nhirsama/onePushBot/global"
 )
 
@@ -24,7 +23,7 @@ type MessageEvent struct {
 	Message     string `json:"message"`
 }
 
-func HandleMessage(msg []byte, w *api.WebSocketMessage) {
+func (w *WebSocketMessage) handleMessage(msg []byte) {
 	var messStruct global.Message
 	if err := json.Unmarshal(msg, &messStruct); err != nil {
 		var unmarshalTypeError *json.UnmarshalTypeError
@@ -33,7 +32,7 @@ func HandleMessage(msg []byte, w *api.WebSocketMessage) {
 			if err := json.Unmarshal(msg, &apiResponse); err != nil {
 				log.Printf("不是我草这接收的json怎么连个共同字段都没有 %s", msg)
 			}
-			if ch, ok := api.ResponseMap.Load(apiResponse.Echo); ok {
+			if ch, ok := ResponseMap.Load(apiResponse.Echo); ok {
 				ch.(chan []byte) <- msg
 			} else {
 				log.Printf("接收到未追踪的返回值：%s", msg)
@@ -47,13 +46,15 @@ func HandleMessage(msg []byte, w *api.WebSocketMessage) {
 		messageParse(messStruct, w)
 		log.Println(string(msg))
 	case "meta_event":
-		log.Println("收到元事件:", string(msg))
+		//log.Println("收到元事件:", string(msg))
+		w.metaEvent(msg)
 	default:
 		log.Printf("接收到未定义的信息:%s\n", string(msg))
 	}
 }
 
-func messageParse(message global.Message, w *api.WebSocketMessage) {
+// Deprecated: 建议放置到pkg中，作为功能包调用。
+func messageParse(message global.Message, w *WebSocketMessage) {
 	if message.MessageType == "group" {
 		w.AutoSetMsgEmojiLike(message)
 	}
