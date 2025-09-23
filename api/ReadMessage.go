@@ -6,10 +6,10 @@ import (
 )
 
 func (w *WebSocketMessage) ReadMessageConcurrent() {
-	w.readMessageConcurrentGoroutineDone = make(chan struct{})
-	defer close(w.readMessageConcurrentGoroutineDone)
 	timeoutLength := 60 * time.Second
 	w.readGoroutineClose = make(chan struct{}, 1)
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	for {
 		_ = w.conn.SetReadDeadline(time.Now().Add(timeoutLength))
 		select {

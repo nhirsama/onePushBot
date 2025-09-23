@@ -9,13 +9,12 @@ import (
 )
 
 type WebSocketMessage struct {
-	mu                                 sync.Mutex
-	conn                               *websocket.Conn
-	url                                string
-	WriteChan                          chan commonRequest
-	readGoroutineClose                 chan struct{}
-	heartbeat                          chan struct{}
-	readMessageConcurrentGoroutineDone chan struct{}
+	mu                 sync.RWMutex
+	conn               *websocket.Conn
+	url                string
+	WriteChan          chan commonRequest
+	readGoroutineClose chan struct{}
+	heartbeat          chan struct{}
 }
 
 func NewWebSocketMessage(url string) *WebSocketMessage {
@@ -28,9 +27,7 @@ func NewWebSocketMessage(url string) *WebSocketMessage {
 func (w *WebSocketMessage) login() error {
 	var err error
 	log.Printf("正在连接至 %s\n", w.url)
-	w.mu.Lock()
 	w.conn, _, err = websocket.DefaultDialer.Dial(w.url, nil)
-	w.mu.Unlock()
 	if err != nil {
 		return err
 	}
@@ -39,12 +36,15 @@ func (w *WebSocketMessage) login() error {
 }
 
 func (w *WebSocketMessage) reLogin() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	err := w.login()
 	if err != nil {
 		for reLoginCount := 1; ; reLoginCount++ {
+			time.Sleep(time.Second * 5)
 			log.Printf("连接失败，正在重新连接第%d次。%s\n", reLoginCount, err)
 			err = w.login()
-			if err != nil {
+			if err == nil {
 				return
 			}
 		}

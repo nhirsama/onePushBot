@@ -7,9 +7,9 @@ func (w *WebSocketMessage) WriteMessage() {
 		select {
 		case request := <-w.WriteChan:
 			for retryCount := 0; retryCount < 3; retryCount++ {
-				w.mu.Lock()
+				w.mu.RLock()
 				err := w.conn.WriteJSON(request)
-				w.mu.Unlock()
+				w.mu.RUnlock()
 				if err != nil {
 					log.Println("WriteJSON error:", err)
 				} else {
