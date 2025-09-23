@@ -46,7 +46,6 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 		messageParse(messStruct, w)
 		log.Println(string(msg))
 	case "meta_event":
-		//log.Println("收到元事件:", string(msg))
 		w.metaEvent(msg)
 	default:
 		log.Printf("接收到未定义的信息:%s\n", string(msg))

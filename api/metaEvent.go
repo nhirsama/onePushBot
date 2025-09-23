@@ -21,9 +21,25 @@ func (w *WebSocketMessage) metaEvent(msg []byte) {
 		log.Println("元信息解析失败：", string(msg))
 		return
 	}
-	if mev.MetaEventType == "heartbeat" {
+	switch mev.MetaEventType {
+	case "heartbeat":
 		w.heartbeat <- struct{}{}
-	} else {
+	case "lifecycle":
+		w.lifecycle(&mev)
+	default:
 		log.Println("收到未定义的元信息：", string(msg))
+	}
+}
+
+func (w *WebSocketMessage) lifecycle(mev *metaEvent) {
+
+	var st string
+	err := json.Unmarshal(mev.SubType, &st)
+	if err != nil {
+		log.Println("元信息解析失败,位于生命周期：", string(mev.SubType))
+		return
+	}
+	if st == "connect" {
+		log.Println("WebSocket 服务端链接成功")
 	}
 }
