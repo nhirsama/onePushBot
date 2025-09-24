@@ -3,7 +3,7 @@ package api
 import "time"
 
 func (w *WebSocketMessage) Start() {
-	timeoutLength := 60 * time.Second
+	timeoutLength := 40 * time.Second
 	timer := time.NewTimer(timeoutLength)
 	defer timer.Stop()
 	go w.ReadMessageConcurrent()
@@ -21,6 +21,10 @@ func (w *WebSocketMessage) Start() {
 		case <-timer.C:
 			w.readGoroutineClose <- struct{}{}
 			w.reLogin()
+			select {
+			case <-w.readGoroutineClose:
+			default:
+			}
 			go w.ReadMessageConcurrent()
 		}
 	}

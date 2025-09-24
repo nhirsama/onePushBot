@@ -22,6 +22,7 @@ func NewWebSocketMessage(url string) *WebSocketMessage {
 	w.url = url
 	w.reLogin()
 	w.WriteChan = make(chan commonRequest, 100)
+	w.heartbeat = make(chan struct{}, 1)
 	return &w
 }
 func (w *WebSocketMessage) login() error {
