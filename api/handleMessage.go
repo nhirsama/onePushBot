@@ -4,31 +4,48 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-
-	"github.com/nhirsama/onePushBot/global"
 )
 
-// Deprecated: 请使用global的统一解析结构体
-// BaseMsg 基础消息，只检测 post_type
-type BaseMsg struct {
-	PostType string `json:"post_type"`
+type messageStruct struct {
+	Time          int64           `json:"time"`
+	SelfId        int64           `json:"self_id"`
+	PostType      string          `json:"post_type"`
+	MetaEventType string          `json:"meta_event_type"`
+	Interval      int64           `json:"interval"`
+	MessageId     int64           `json:"message_id"`
+	MessageSeq    json.RawMessage `json:"message_seq"`
+	RealId        json.RawMessage `json:"real_id"`
+	RealSeq       json.RawMessage `json:"real_seq"`
+	MessageType   json.RawMessage `json:"message_type"`
+	Sender        json.RawMessage `json:"sender"`
+	RawMessage    json.RawMessage `json:"raw_message"`
+	Font          json.RawMessage `json:"font"`
+	SubType       json.RawMessage `json:"sub_type"`
+	Message       json.RawMessage `json:"message"`
+	MessageFormat string          `json:"message_format"`
+	GroupId       int64           `json:"group_id"`
+	GroupName     string          `json:"group_name"`
+	UserId        int64           `json:"user_id"`
 }
 
-// Deprecated: 请使用global的统一解析结构体
-// MessageEvent 消息事件
-type MessageEvent struct {
-	PostType    string `json:"post_type"`
-	MessageType string `json:"message_type"`
-	UserID      int64  `json:"user_id"`
-	Message     string `json:"message"`
+type apiResponse struct {
+	Status  string `json:"status"`
+	RetCode int64  `json:"retcode"`
+	Data    struct {
+		Result int64  `json:"result"`
+		ErrMsg string `json:"errMsg"`
+	}
+	Message string `json:"message"`
+	Wording string `json:"wording"`
+	Echo    string `json:"echo"`
 }
 
 func (w *WebSocketMessage) handleMessage(msg []byte) {
-	var messStruct global.Message
+	var messStruct messageStruct
 	if err := json.Unmarshal(msg, &messStruct); err != nil {
 		var unmarshalTypeError *json.UnmarshalTypeError
 		if errors.As(err, &unmarshalTypeError) {
-			var apiResponse global.ApiResponse
+			var apiResponse apiResponse
 			if err := json.Unmarshal(msg, &apiResponse); err != nil {
 				log.Printf("不是我草这接收的json怎么连个共同字段都没有 %s", msg)
 			}
@@ -43,7 +60,7 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 
 	switch messStruct.PostType {
 	case "message":
-		messageParse(messStruct, w)
+		w.handleMessageMessage(messStruct)
 		log.Println(string(msg))
 	case "meta_event":
 		w.metaEvent(msg)
@@ -52,9 +69,14 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 	}
 }
 
-// Deprecated: 建议放置到pkg中，作为功能包调用。
-func messageParse(message global.Message, w *WebSocketMessage) {
-	if message.MessageType == "group" {
-		w.AutoSetMsgEmojiLike(message)
+func (w *WebSocketMessage) handleMessageMessage(ms messageStruct) {
+	var messageType string
+	if err := json.Unmarshal(ms.MessageType, &messageType); err != nil {
+		log.Println(err)
+	}
+	switch messageType {
+	case "group":
+		//TODO: 应该通过 eventBus 广播到所有功能中
+		w.AutoSetMsgEmojiLike(ms)
 	}
 }

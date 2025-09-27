@@ -53,23 +53,27 @@ func init() {
 
 }
 
+// Deprecated: 建议重写
 // StatusStruct 心跳状态
 type StatusStruct struct {
 	Online bool `json:"online"`
 	Good   bool `json:"good"`
 }
 
+// Deprecated: 建议重写
 // MessageData 消息内容结构体
 type MessageData struct {
 	Text string `json:"text"`
 }
 
+// Deprecated: 建议重写
 // MessageElement 消息元素（可能有多种类型，例如 text、image、emoji 等）
 type MessageElement struct {
 	Type string      `json:"type"`
 	Data MessageData `json:"data"`
 }
 
+// Deprecated: 建议重写
 // Sender 发送者信息
 type Sender struct {
 	UserId   int64  `json:"user_id"`
@@ -78,6 +82,7 @@ type Sender struct {
 	Role     string `json:"role"`
 }
 
+// Deprecated: 建议重写
 // Message 通用消息结构体（兼容心跳、群消息等）
 type Message struct {
 	Time          int64            `json:"time"`
@@ -102,6 +107,7 @@ type Message struct {
 	UserId        int64            `json:"user_id,omitempty"`
 }
 
+// Deprecated: 建议重写
 type ApiResponse struct {
 	Status  string `json:"status"`
 	RetCode int64  `json:"retcode"`
