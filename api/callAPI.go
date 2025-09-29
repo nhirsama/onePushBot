@@ -27,8 +27,8 @@ func (w *WebSocketMessage) callAPI(action string, params interface{}) (*commonRe
 	for i := 1; i <= retryCount; i++ {
 		echo := strconv.FormatInt(time.Now().UnixNano(), 10)
 		ch := make(chan []byte, 1)
-		ResponseMap.Store(echo, ch)
-		defer ResponseMap.Delete(echo)
+		w.responseMap.Store(echo, ch)
+		defer w.responseMap.Delete(echo)
 
 		// 封装请求体
 		request := commonRequest{

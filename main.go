@@ -4,7 +4,6 @@ import (
 	"net/url"
 
 	"github.com/nhirsama/onePushBot/api"
-	_ "github.com/nhirsama/onePushBot/global"
 	"github.com/spf13/viper"
 )
 

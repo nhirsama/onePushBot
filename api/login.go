@@ -2,29 +2,11 @@ package api
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-type WebSocketMessage struct {
-	mu                 sync.RWMutex
-	conn               *websocket.Conn
-	url                string
-	WriteChan          chan commonRequest
-	readGoroutineClose chan struct{}
-	heartbeat          chan struct{}
-}
-
-func NewWebSocketMessage(url string) *WebSocketMessage {
-	var w WebSocketMessage
-	w.url = url
-	w.reLogin()
-	w.WriteChan = make(chan commonRequest, 100)
-	w.heartbeat = make(chan struct{}, 1)
-	return &w
-}
 func (w *WebSocketMessage) login() error {
 	var err error
 	log.Printf("正在连接至 %s\n", w.url)
@@ -49,13 +31,6 @@ func (w *WebSocketMessage) reLogin() {
 				return
 			}
 		}
-	}
-}
-func (w *WebSocketMessage) Close() {
-	err := w.conn.Close()
-	if err != nil {
-		log.Println(err)
-		return
 	}
 }
 

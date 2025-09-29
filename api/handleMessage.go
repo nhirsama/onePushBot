@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 )
 
@@ -16,7 +15,7 @@ type messageStruct struct {
 	MessageSeq    json.RawMessage `json:"message_seq"`
 	RealId        json.RawMessage `json:"real_id"`
 	RealSeq       json.RawMessage `json:"real_seq"`
-	MessageType   json.RawMessage `json:"message_type"`
+	MessageType   string          `json:"message_type"`
 	Sender        json.RawMessage `json:"sender"`
 	RawMessage    json.RawMessage `json:"raw_message"`
 	Font          json.RawMessage `json:"font"`
@@ -26,16 +25,12 @@ type messageStruct struct {
 	GroupId       int64           `json:"group_id"`
 	GroupName     string          `json:"group_name"`
 	UserId        int64           `json:"user_id"`
-}
-
-type apiResponse struct {
-	Status  string `json:"status"`
-	RetCode int64  `json:"retcode"`
-	Data    struct {
+	Status        json.RawMessage `json:"status"`
+	RetCode       int64           `json:"retcode"`
+	Data          struct {
 		Result int64  `json:"result"`
 		ErrMsg string `json:"errMsg"`
 	}
-	Message string `json:"message"`
 	Wording string `json:"wording"`
 	Echo    string `json:"echo"`
 }
@@ -43,19 +38,7 @@ type apiResponse struct {
 func (w *WebSocketMessage) handleMessage(msg []byte) {
 	var messStruct messageStruct
 	if err := json.Unmarshal(msg, &messStruct); err != nil {
-		var unmarshalTypeError *json.UnmarshalTypeError
-		if errors.As(err, &unmarshalTypeError) {
-			var apiResponse apiResponse
-			if err := json.Unmarshal(msg, &apiResponse); err != nil {
-				log.Printf("不是我草这接收的json怎么连个共同字段都没有 %s", msg)
-			}
-			if ch, ok := ResponseMap.Load(apiResponse.Echo); ok {
-				ch.(chan []byte) <- msg
-			} else {
-				log.Printf("接收到未追踪的返回值：%s", msg)
-			}
-		}
-		return
+		log.Println("json解析失败：", string(msg))
 	}
 
 	switch messStruct.PostType {
@@ -65,16 +48,22 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 	case "meta_event":
 		w.metaEvent(msg)
 	default:
-		log.Printf("接收到未定义的信息:%s\n", string(msg))
+		switch messStruct.Echo {
+		case "":
+			log.Printf("接收到未定义的信息:%s\n", string(msg))
+		default:
+			if ch, ok := w.responseMap.Load(messStruct.Echo); ok {
+				ch.(chan []byte) <- msg
+			} else {
+				log.Printf("接收到未追踪的返回值：%s", msg)
+			}
+		}
+
 	}
 }
 
 func (w *WebSocketMessage) handleMessageMessage(ms messageStruct) {
-	var messageType string
-	if err := json.Unmarshal(ms.MessageType, &messageType); err != nil {
-		log.Println(err)
-	}
-	switch messageType {
+	switch ms.MessageType {
 	case "group":
 		//TODO: 应该通过 eventBus 广播到所有功能中
 		w.AutoSetMsgEmojiLike(ms)
