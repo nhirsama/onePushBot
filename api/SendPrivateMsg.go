@@ -5,15 +5,21 @@ import (
 )
 
 func (w *WebSocketMessage) SendPrivateMsg(userId int64, text string, _type string) {
-	type message struct {
-		Type string `json:"type"`
-		Data string `json:"data"`
+	type messageData struct {
+		Text string `json:"text"`
 	}
+
+	type message struct {
+		Type string      `json:"type"`
+		Data messageData `json:"data"`
+	}
+
 	type params struct {
 		UserId  int64     `json:"user_id"`
 		Message []message `json:"message"`
 	}
-	resp, err := w.callAPI("send_private_msg", params{userId, []message{{_type, text}}})
+
+	resp, err := w.callAPI("send_private_msg", params{userId, []message{{_type, messageData{text}}}})
 	if err != nil {
 		log.Println("callAPI send_private_msg error:", err)
 	}

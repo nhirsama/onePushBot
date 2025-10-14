@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/asaskevich/EventBus"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 )
@@ -22,6 +22,7 @@ type WebSocketMessage struct {
 	heartbeat          chan struct{}
 	pubSub             *gochannel.GoChannel
 	responseMap        sync.Map
+	Bus                EventBus.Bus
 }
 
 func init() {
@@ -71,6 +72,7 @@ func init() {
 		log.Println(err)
 	}
 	fmt.Printf("%+v\n", viper.AllSettings())
+
 }
 
 func NewWebSocketMessage(url string) *WebSocketMessage {
@@ -80,12 +82,7 @@ func NewWebSocketMessage(url string) *WebSocketMessage {
 	w.WriteChan = make(chan commonRequest, 100)
 	w.heartbeat = make(chan struct{}, 1)
 	//消息总线
-	w.pubSub = gochannel.NewGoChannel(
-		gochannel.Config{
-			OutputChannelBuffer: 10,
-		},
-		watermill.NewStdLogger(false, false),
-	)
+	w.Bus = EventBus.New()
 	return &w
 }
 

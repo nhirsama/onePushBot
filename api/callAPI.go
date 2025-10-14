@@ -38,7 +38,8 @@ func (w *WebSocketMessage) callAPI(action string, params interface{}) (*commonRe
 		}
 		//向写协程发送写信息
 		w.WriteChan <- request
-
+		ss, _ := json.Marshal(request)
+		log.Println(string(ss))
 		select {
 		case msg := <-ch:
 			var resp commonResponse

@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-type messageStruct struct {
+type MessageStruct struct {
 	Time          int64           `json:"time"`
 	SelfId        int64           `json:"self_id"`
 	PostType      string          `json:"post_type"`
@@ -36,7 +36,7 @@ type messageStruct struct {
 }
 
 func (w *WebSocketMessage) handleMessage(msg []byte) {
-	var messStruct messageStruct
+	var messStruct MessageStruct
 	if err := json.Unmarshal(msg, &messStruct); err != nil {
 		log.Println("json解析失败：", string(msg))
 	}
@@ -62,10 +62,12 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 	}
 }
 
-func (w *WebSocketMessage) handleMessageMessage(ms messageStruct) {
+func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	switch ms.MessageType {
 	case "group":
-		//TODO: 应该通过 eventBus 广播到所有功能中
-		w.AutoSetMsgEmojiLike(ms)
+		w.Bus.Publish("groupMessage", &ms)
+	//w.AutoSetMsgEmojiLike(ms)
+	case "private":
+		w.Bus.Publish("privateMessage", &ms)
 	}
 }

@@ -6,7 +6,8 @@
 
 ## 功能简介
 
-onePushBot 是一个用 Go 编写的轻量级机器人框架，通过调用 [NapCat](https://napneko.github.io/) 的 API / WebSocket 接口来实现自动化功能（消息处理、事件监听、插件式扩展等）。
+onePushBot 是一个用 Go 编写的轻量级机器人框架，通过调用 [NapCat](https://napneko.github.io/) 的 API / WebSocket
+接口来实现自动化功能（消息处理、事件监听、插件式扩展等）。
 
 ## 主要特性
 
@@ -52,3 +53,14 @@ go run ./
 ## 许可证
 
 本项目基于 Apache License 2.0 许可证发布，详情请参阅 [LICENSE](./LICENSE) 文件。
+
+## 文档
+
+### bus 消息总线接口
+
+| 类型   | 接口字段         |
+|------|--------------|
+| 群聊消息 | groupMessage |
+|      |              |
+|      |              |
+|      |              |
