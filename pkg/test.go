@@ -15,4 +15,8 @@ func (w *WebSocketMessage) TestFunc() {
 	w.Bus.SubscribeAsync("privateMessage", func(msg *api.MessageStruct) {
 		w.test(msg)
 	}, false)
+
+	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
+		w.AutoSetMsgEmojiLike(msg)
+	}, false)
 }

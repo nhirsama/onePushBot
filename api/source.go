@@ -67,7 +67,7 @@ func init() {
 		}
 	}
 
-	err := viper.UnmarshalKey("autoSetMsgEmojiLikeSet", &autoSetMsgEmojiLikeSet)
+	err := viper.UnmarshalKey("AutoSetMsgEmojiLikeSet", &AutoSetMsgEmojiLikeSet)
 	if err != nil {
 		log.Println(err)
 	}
