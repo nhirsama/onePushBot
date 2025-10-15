@@ -1,22 +1,20 @@
 package pkg
 
 import (
+	"log"
+
 	"github.com/nhirsama/onePushBot/api"
+	"github.com/nhirsama/onePushBot/pkg/llm"
 )
 
-type WebSocketMessage struct {
-	*api.WebSocketMessage
+func (w *WebSocketMessage) reply(message *api.MessageStruct) {
+	data := llm.Call(string(message.Message))
+	log.Println(data)
+	w.SendPrivateMsg(message.UserId, data, "text")
 }
 
-func (w *WebSocketMessage) test(message *api.MessageStruct) {
-	w.SendPrivateMsg(message.UserId, "test", "text")
-}
-func (w *WebSocketMessage) TestFunc() {
-	w.Bus.SubscribeAsync("privateMessage", func(msg *api.MessageStruct) {
-		w.test(msg)
-	}, false)
-
-	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
-		w.AutoSetMsgEmojiLike(msg)
-	}, false)
+func (w *WebSocketMessage) replyGroup(message *api.MessageStruct) {
+	data := llm.Call(string(message.Message))
+	log.Println(data)
+	w.SendGroupMsg(message.GroupId, data, "text")
 }

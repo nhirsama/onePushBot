@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 )
@@ -66,7 +67,12 @@ func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	switch ms.MessageType {
 	case "group":
 		w.Bus.Publish("groupMessage", &ms)
-	//w.AutoSetMsgEmojiLike(ms)
+		if bytes.Contains(ms.RawMessage, []byte("[CQ:at,qq=qq号")) {
+			w.Bus.Publish("atMe", &ms)
+			log.Println("接收到艾特信息")
+		}
+
+	//w.autoSetMsgEmojiLike(ms)
 	case "private":
 		w.Bus.Publish("privateMessage", &ms)
 	}

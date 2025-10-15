@@ -14,7 +14,6 @@ func main() {
 	w := api.NewWebSocketMessage(webSocketUrl.String())
 	defer w.Close()
 	go w.Start()
-	pkgW := pkg.WebSocketMessage{WebSocketMessage: w}
-	go pkgW.TestFunc()
+	go pkg.Start(w)
 	select {}
 }
