@@ -3,7 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
+
+	"github.com/spf13/viper"
 )
 
 type MessageStruct struct {
@@ -20,7 +23,7 @@ type MessageStruct struct {
 	Sender        json.RawMessage `json:"sender"`
 	RawMessage    json.RawMessage `json:"raw_message"`
 	Font          json.RawMessage `json:"font"`
-	SubType       json.RawMessage `json:"sub_type"`
+	SubType       string          `json:"sub_type"`
 	Message       json.RawMessage `json:"message"`
 	MessageFormat string          `json:"message_format"`
 	GroupId       int64           `json:"group_id"`
@@ -28,6 +31,7 @@ type MessageStruct struct {
 	UserId        int64           `json:"user_id"`
 	Status        json.RawMessage `json:"status"`
 	RetCode       int64           `json:"retcode"`
+	TargetId      int64           `json:"target_id"`
 	Data          struct {
 		Result int64  `json:"result"`
 		ErrMsg string `json:"errMsg"`
@@ -48,6 +52,13 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 		log.Println(string(msg))
 	case "meta_event":
 		w.metaEvent(msg)
+	case "notice":
+		w.Bus.Publish("notice", &messStruct)
+		switch messStruct.SubType {
+		case "poke":
+			w.Bus.Publish("poke", &messStruct)
+			log.Println("接收到拍一拍通知：", string(msg))
+		}
 	default:
 		switch messStruct.Echo {
 		case "":
@@ -67,12 +78,13 @@ func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	switch ms.MessageType {
 	case "group":
 		w.Bus.Publish("groupMessage", &ms)
-		if bytes.Contains(ms.RawMessage, []byte("[CQ:at,qq=qq号")) {
+		var selfId int64
+		viper.UnmarshalKey("selfId", &selfId)
+		if bytes.Contains(ms.RawMessage, []byte(fmt.Sprintf("[CQ:at,qq=%d", selfId))) {
 			w.Bus.Publish("atMe", &ms)
 			log.Println("接收到艾特信息")
 		}
 
-	//w.autoSetMsgEmojiLike(ms)
 	case "private":
 		w.Bus.Publish("privateMessage", &ms)
 	}

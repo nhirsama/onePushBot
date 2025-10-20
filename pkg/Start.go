@@ -28,6 +28,10 @@ func Start(apiWsm *api.WebSocketMessage) {
 	w.Bus.SubscribeAsync("atMe", func(msg *api.MessageStruct) {
 		w.replyGroup(msg)
 	}, false)
+
+	w.Bus.SubscribeAsync("poke", func(msg *api.MessageStruct) {
+		w.replyPoke(msg)
+	}, false)
 }
 
 func (w *WebSocketMessage) ReadConfig() {
