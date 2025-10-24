@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/spf13/viper"
+	"github.com/nhirsama/onePushBot/config"
 )
 
 type MessageStruct struct {
@@ -78,9 +78,7 @@ func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	switch ms.MessageType {
 	case "group":
 		w.Bus.Publish("groupMessage", &ms)
-		var selfId int64
-		viper.UnmarshalKey("selfId", &selfId)
-		if bytes.Contains(ms.RawMessage, []byte(fmt.Sprintf("[CQ:at,qq=%d", selfId))) {
+		if bytes.Contains(ms.RawMessage, []byte(fmt.Sprintf("[CQ:at,qq=%d", config.SelfId))) {
 			w.Bus.Publish("atMe", &ms)
 			log.Println("接收到艾特信息")
 		}

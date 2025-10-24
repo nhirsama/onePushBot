@@ -2,13 +2,11 @@ package pkg
 
 import (
 	"github.com/nhirsama/onePushBot/api"
-	"github.com/spf13/viper"
+	"github.com/nhirsama/onePushBot/config"
 )
 
 func (w *WebSocketMessage) replyPoke(message *api.MessageStruct) {
-	var selfId int64
-	viper.UnmarshalKey("selfId", &selfId)
-	if message.TargetId == selfId {
+	if message.TargetId == config.SelfId {
 		w.SendPoke(message.GroupId, message.UserId)
 	}
 }

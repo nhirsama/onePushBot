@@ -3,17 +3,11 @@ package llm
 import (
 	"log"
 
-	"github.com/spf13/viper"
+	"github.com/nhirsama/onePushBot/config"
 )
 
 func Call(inquiry string) string {
-	var apiKey string
-	err := viper.UnmarshalKey("apiKey", &apiKey)
-	if err != nil {
-		return ""
-	}
-
-	client := NewClient(apiKey) // 你的 Bearer Token
+	client := NewClient(config.ApiKey) // 你的 Bearer Token
 
 	req := &ChatRequest{
 		Model: "glm-4.5-flash",

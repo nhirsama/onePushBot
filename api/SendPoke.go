@@ -3,12 +3,10 @@ package api
 import (
 	"log"
 
-	"github.com/spf13/viper"
+	"github.com/nhirsama/onePushBot/config"
 )
 
 func (w *WebSocketMessage) SendPoke(groupId, targetId int64) {
-	var selfId int64
-	viper.UnmarshalKey("selfId", &selfId)
 	type params struct {
 		UserId   int64 `json:"user_id"`
 		GroupId  int64 `json:"group_id"`
@@ -16,7 +14,7 @@ func (w *WebSocketMessage) SendPoke(groupId, targetId int64) {
 	}
 
 	resp, err := w.callAPI("send_poke", params{
-		UserId:   selfId,
+		UserId:   config.SelfId,
 		GroupId:  groupId,
 		TargetId: targetId,
 	})

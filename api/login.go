@@ -2,19 +2,28 @@ package api
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 func (w *WebSocketMessage) login() error {
+	url := w.url
+	url = strings.TrimSpace(url)
+	url = strings.TrimPrefix(url, "wss://")
+	url = strings.TrimPrefix(url, "ws://")
 	var err error
-	log.Printf("正在连接至 %s\n", w.url)
-	w.conn, _, err = websocket.DefaultDialer.Dial(w.url, nil)
-	if err != nil {
-		return err
+	for _, scheme := range []string{"wss://", "ws://"} {
+		log.Printf("正在连接至 %s\n", scheme+url)
+		w.conn, _, err = websocket.DefaultDialer.Dial(scheme+url, nil)
+		if err != nil {
+			return err
+		}
+		log.Println("WebSocket 已连接")
+		return nil
 	}
-	log.Println("WebSocket 已连接")
+
 	return nil
 }
 
