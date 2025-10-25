@@ -23,7 +23,7 @@ func TestAuth_Authenticate(t *testing.T) {
 		t.Error("被篡改签名验证为真")
 	}
 	//若失败请签名一个五分钟内的信息用以验证
-	s = "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n213123123123\n-----BEGIN PGP SIGNATURE-----\n\niHUEARYKAB0WIQQRwGo4vvZxEEkeupu98uJkGyYLKAUCaPzgdgAKCRC98uJkGyYL\nKEpwAP9R/c458412VV7Tqky0y4KEQXoulVBHnc1rApa29LSPiQEA4pDmaYXAz1ju\nWgInr3db6KuE+9d7PFB0oeL+7N31wAc=\n=0NdB\n-----END PGP SIGNATURE-----\n"
+	s = "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n234234234\n-----BEGIN PGP SIGNATURE-----\n\niHUEARYKAB0WIQQRwGo4vvZxEEkeupu98uJkGyYLKAUCaPzjKQAKCRC98uJkGyYL\nKAbAAPkB55k6uRlVTUyPWUjTzlDmlk0R3z0INUCk5oTIJ0r0HAD+Ouqhs+s81YTr\ntBsFQqmnLeHwTB3/FAzuQ0817EvPjQ4=\n=WarB\n-----END PGP SIGNATURE-----\n"
 	if !auth.Authenticate([]byte(s)) {
 		t.Error("正确签名验证为否")
 	}
