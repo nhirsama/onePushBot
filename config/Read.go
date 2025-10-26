@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/url"
 
+	"github.com/nhirsama/onePushBot/pkg/auth"
 	"github.com/spf13/viper"
 )
 
@@ -12,6 +13,7 @@ var SelfId int64
 var ApiKey string
 
 var WebSocketUrl string
+var Auth *auth.Auth
 
 func ReadConfig() {
 	webSocketUrl := url.URL{Scheme: "wss", Host: viper.GetString("apiUrl"), Path: "/ws", RawQuery: "access_token=" + viper.GetString("token")}
@@ -30,4 +32,13 @@ func ReadConfig() {
 	if err != nil {
 		log.Println(err)
 	}
+
+	Auth = auth.NewAuth()
+
+	var pubKey string
+	err = viper.UnmarshalKey("pubKey", &pubKey)
+	if err != nil {
+		log.Println(err)
+	}
+	Auth.AddPublicKey(pubKey)
 }

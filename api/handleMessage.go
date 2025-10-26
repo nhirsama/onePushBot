@@ -1,10 +1,10 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/nhirsama/onePushBot/config"
 )
@@ -21,7 +21,7 @@ type MessageStruct struct {
 	RealSeq       json.RawMessage `json:"real_seq"`
 	MessageType   string          `json:"message_type"`
 	Sender        json.RawMessage `json:"sender"`
-	RawMessage    json.RawMessage `json:"raw_message"`
+	RawMessage    string          `json:"raw_message"`
 	Font          json.RawMessage `json:"font"`
 	SubType       string          `json:"sub_type"`
 	Message       json.RawMessage `json:"message"`
@@ -78,7 +78,7 @@ func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	switch ms.MessageType {
 	case "group":
 		w.Bus.Publish("groupMessage", &ms)
-		if bytes.Contains(ms.RawMessage, []byte(fmt.Sprintf("[CQ:at,qq=%d", config.SelfId))) {
+		if strings.Contains(ms.RawMessage, fmt.Sprintf("[CQ:at,qq=%d", config.SelfId)) {
 			w.Bus.Publish("atMe", &ms)
 			log.Println("接收到艾特信息")
 		}

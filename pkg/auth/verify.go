@@ -39,12 +39,14 @@ func (a *Auth) VerifyPGPSignature(signedMessage []byte) VerifyResult {
 		result.Err = fmt.Errorf("failed to read signature body: %w", err)
 		return result
 	}
+	a.mu.RLock()
 	md, err := openpgp.CheckDetachedSignature(
 		a.keyRing,
 		bytes.NewReader(block.Bytes), // 要验证的消息内容
 		bytes.NewReader(sigBytes),    // 签名数据
 		nil,
 	)
+	a.mu.RUnlock()
 
 	if err != nil {
 		result.Err = fmt.Errorf("signature verification failed: %w", err)
