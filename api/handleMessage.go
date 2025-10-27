@@ -32,12 +32,8 @@ type MessageStruct struct {
 	Status        json.RawMessage `json:"status"`
 	RetCode       int64           `json:"retcode"`
 	TargetId      int64           `json:"target_id"`
-	Data          struct {
-		Result int64  `json:"result"`
-		ErrMsg string `json:"errMsg"`
-	}
-	Wording string `json:"wording"`
-	Echo    string `json:"echo"`
+	Wording       string          `json:"wording"`
+	Echo          string          `json:"echo"`
 }
 
 func (w *WebSocketMessage) handleMessage(msg []byte) {
@@ -57,8 +53,10 @@ func (w *WebSocketMessage) handleMessage(msg []byte) {
 		switch messStruct.SubType {
 		case "poke":
 			w.Bus.Publish("poke", &messStruct)
-			log.Println("接收到拍一拍通知：", string(msg))
+			w.pokeLog(msg)
 		}
+	case "message_sent":
+		w.Bus.Publish("messageSent", &messStruct)
 	default:
 		switch messStruct.Echo {
 		case "":
@@ -86,4 +84,33 @@ func (w *WebSocketMessage) handleMessageMessage(ms MessageStruct) {
 	case "private":
 		w.Bus.Publish("privateMessage", &ms)
 	}
+}
+
+func (w *WebSocketMessage) pokeLog(ms []byte) {
+	type RawItem struct {
+		Txt  string `json:"txt"`
+		Type string `json:"type"`
+	}
+
+	type Message struct {
+		UserID   int       `json:"user_id"`
+		TargetID int       `json:"target_id"`
+		RawInfo  []RawItem `json:"raw_info"`
+	}
+	var msg Message
+	if err := json.Unmarshal(ms, &msg); err != nil {
+		log.Println("拍一拍信息解析失败", err, string(ms))
+	}
+	var action, tail string
+	for _, item := range msg.RawInfo {
+		if item.Type == "nor" {
+			if action == "" {
+				action = item.Txt
+			} else {
+				tail = item.Txt
+			}
+		}
+	}
+
+	log.Printf("%d %s %d %s\n", msg.UserID, action, msg.TargetID, tail)
 }

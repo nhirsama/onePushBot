@@ -2,6 +2,7 @@ package llm
 
 import (
 	"log"
+	"strings"
 
 	"github.com/nhirsama/onePushBot/config"
 )
@@ -26,7 +27,7 @@ func Call(inquiry string) string {
 	}
 
 	if len(resp.Choices) > 0 {
-		return resp.Choices[0].Message.Content
+		return strings.TrimSpace(resp.Choices[0].Message.Content)
 	} else {
 		return ""
 	}
