@@ -1,7 +1,10 @@
 package pkg
 
 import (
+	"strings"
+
 	"github.com/nhirsama/onePushBot/api"
+	"github.com/nhirsama/onePushBot/config"
 )
 
 type WebSocketMessage struct {
@@ -34,5 +37,10 @@ func Start(apiWsm *api.WebSocketMessage) {
 
 	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
 		w.sudo(msg)
+	}, false)
+
+	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
+		strings.Contains(string(msg.Message), "\"type\":\"text\"")
+		config.DB.UpdateUser(msg.UserId, msg.RawMessage)
 	}, false)
 }

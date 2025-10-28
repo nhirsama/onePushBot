@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/nhirsama/onePushBot/pkg/auth"
+	"github.com/nhirsama/onePushBot/pkg/infoEntropy"
 	"github.com/spf13/viper"
 )
 
@@ -14,6 +15,7 @@ var ApiKey string
 
 var WebSocketUrl string
 var Auth *auth.Auth
+var DB *infoEntropy.EntropyDB
 
 func ReadConfig() {
 	webSocketUrl := url.URL{Scheme: "wss", Host: viper.GetString("apiUrl"), Path: "/ws", RawQuery: "access_token=" + viper.GetString("token")}
@@ -41,4 +43,10 @@ func ReadConfig() {
 		log.Println(err)
 	}
 	Auth.AddPublicKey(pubKey)
+
+	DB = infoEntropy.LoadDB()
+}
+func SaveConfig() {
+	log.Println("正在保存配置")
+	DB.Save()
 }
