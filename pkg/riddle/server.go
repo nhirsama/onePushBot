@@ -32,7 +32,7 @@ type WebSocketMessage struct {
 }
 
 func init() {
-	TaskFunc.TaskFuncList = append(TaskFunc.TaskFuncList, Server)
+	TaskFunc.ModuleList = append(TaskFunc.ModuleList, TaskFunc.Config{Server, "riddleConfig"})
 }
 func (w *WebSocketMessage) UpdateMessage() {
 	w.WebSocketMessage.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
@@ -75,6 +75,9 @@ func (w *WebSocketMessage) UpdateMessage() {
 					}
 				}(req))
 			}
+		}
+		if newMessage == "" {
+			return
 		}
 		Mes.Mu.Lock()
 		Mes.Message = newMessage

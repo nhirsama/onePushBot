@@ -1,11 +1,11 @@
 package pkg
 
 import (
-	"strings"
-
 	"github.com/nhirsama/onePushBot/api"
-	"github.com/nhirsama/onePushBot/config"
+	_ "github.com/nhirsama/onePushBot/config"
 	"github.com/nhirsama/onePushBot/pkg/TaskFunc"
+	_ "github.com/nhirsama/onePushBot/pkg/autoSetMsgEmojiLike"
+	_ "github.com/nhirsama/onePushBot/pkg/riddle"
 	"github.com/spf13/viper"
 )
 
@@ -37,11 +37,6 @@ func Start(apiWsm *api.WebSocketMessage) {
 		w.sudo(msg)
 	}, false)
 
-	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
-		if strings.Contains(string(msg.Message), "\"type\":\"text\"") {
-			config.DB.UpdateUser(msg.UserId, msg.RawMessage)
-		}
-	}, false)
 	for _, funcHandle := range TaskFunc.ModuleList {
 		if viper.GetBool(funcHandle.ModuleName + "Enable") {
 			go funcHandle.TaskFunc(apiWsm)

@@ -7,4 +7,4 @@ type Config struct {
 	ModuleName string
 }
 
-var ModuleList []Config
+var ModuleList []Config = make([]Config, 0)

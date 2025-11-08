@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/nhirsama/onePushBot/api"
+	"github.com/nhirsama/onePushBot/pkg/TaskFunc"
 	"github.com/spf13/viper"
 )
 
@@ -51,4 +54,12 @@ func init() {
 
 	fmt.Printf("%+v\n", viper.AllSettings())
 	ReadConfig()
+
+	TaskFunc.ModuleList = append(TaskFunc.ModuleList, TaskFunc.Config{TaskFunc: func(w *api.WebSocketMessage) {
+		w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
+			if strings.Contains(string(msg.Message), "\"type\":\"text\"") {
+				DB.UpdateUser(msg.UserId, msg.RawMessage)
+			}
+		}, false)
+	}, ModuleName: "groupMessageTokenDB"})
 }
