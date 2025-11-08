@@ -5,7 +5,8 @@ import (
 
 	"github.com/nhirsama/onePushBot/api"
 	"github.com/nhirsama/onePushBot/config"
-	"github.com/nhirsama/onePushBot/pkg/riddle"
+	"github.com/nhirsama/onePushBot/pkg/TaskFunc"
+	"github.com/spf13/viper"
 )
 
 type WebSocketMessage struct {
@@ -19,10 +20,6 @@ func Start(apiWsm *api.WebSocketMessage) {
 	//w.Bus.SubscribeAsync("privateMessage", func(msg *api.MessageStruct) {
 	//	w.reply(msg)
 	//}, false)
-
-	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
-		w.autoSetMsgEmojiLike(msg)
-	}, false)
 
 	w.Bus.SubscribeAsync("atMe", func(msg *api.MessageStruct) {
 		w.replyGroup(msg)
@@ -45,6 +42,9 @@ func Start(apiWsm *api.WebSocketMessage) {
 			config.DB.UpdateUser(msg.UserId, msg.RawMessage)
 		}
 	}, false)
-
-	go riddle.Server(w.WebSocketMessage)
+	for _, funcHandle := range TaskFunc.ModuleList {
+		if viper.GetBool(funcHandle.ModuleName + "Enable") {
+			go funcHandle.TaskFunc(apiWsm)
+		}
+	}
 }

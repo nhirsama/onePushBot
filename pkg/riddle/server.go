@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/nhirsama/onePushBot/api"
+	"github.com/nhirsama/onePushBot/pkg/TaskFunc"
 	"github.com/spf13/viper"
 )
 
@@ -30,6 +31,9 @@ type WebSocketMessage struct {
 	*api.WebSocketMessage
 }
 
+func init() {
+	TaskFunc.TaskFuncList = append(TaskFunc.TaskFuncList, Server)
+}
 func (w *WebSocketMessage) UpdateMessage() {
 	w.WebSocketMessage.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
 		if msg.GroupId != viper.GetInt64("riddleConfigGroupId") {
@@ -103,9 +107,6 @@ func riddleHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func Server(web *api.WebSocketMessage) {
-	if !viper.GetBool("riddleConfigEnable") {
-		return
-	}
 	serverPort := 12396
 	http.HandleFunc("/riddle25", riddleHandler)
 	log.Printf("服务器启动于 http://localhost:%d.", serverPort)
