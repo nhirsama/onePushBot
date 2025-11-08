@@ -5,6 +5,7 @@ import (
 
 	"github.com/nhirsama/onePushBot/api"
 	"github.com/nhirsama/onePushBot/config"
+	"github.com/nhirsama/onePushBot/pkg/riddle"
 )
 
 type WebSocketMessage struct {
@@ -40,7 +41,10 @@ func Start(apiWsm *api.WebSocketMessage) {
 	}, false)
 
 	w.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
-		strings.Contains(string(msg.Message), "\"type\":\"text\"")
-		config.DB.UpdateUser(msg.UserId, msg.RawMessage)
+		if strings.Contains(string(msg.Message), "\"type\":\"text\"") {
+			config.DB.UpdateUser(msg.UserId, msg.RawMessage)
+		}
 	}, false)
+
+	go riddle.Server(w.WebSocketMessage)
 }
