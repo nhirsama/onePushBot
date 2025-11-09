@@ -48,5 +48,6 @@ func ReadConfig() {
 }
 func SaveConfig() {
 	log.Println("正在保存配置")
+	viper.WriteConfig()
 	DB.Save()
 }

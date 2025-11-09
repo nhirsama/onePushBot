@@ -32,7 +32,7 @@ type WebSocketMessage struct {
 }
 
 func init() {
-	TaskFunc.ModuleList = append(TaskFunc.ModuleList, TaskFunc.Config{Server, "riddleConfig"})
+	TaskFunc.ModuleList = append(TaskFunc.ModuleList, TaskFunc.Config{Server, "riddle"})
 }
 func (w *WebSocketMessage) UpdateMessage() {
 	w.WebSocketMessage.Bus.SubscribeAsync("groupMessage", func(msg *api.MessageStruct) {
