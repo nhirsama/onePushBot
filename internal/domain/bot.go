@@ -1,6 +1,8 @@
 package domain
 
-import "context"
+import (
+	"context"
+)
 
 type Bot interface {
 	// SendGroupMsg 发送群消息
