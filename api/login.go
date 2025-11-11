@@ -18,13 +18,12 @@ func (w *WebSocketMessage) login() error {
 		log.Printf("正在连接至 %s\n", scheme+url)
 		w.conn, _, err = websocket.DefaultDialer.Dial(scheme+url, nil)
 		if err != nil {
-			return err
+			continue
 		}
 		log.Println("WebSocket 已连接")
 		return nil
 	}
-
-	return nil
+	return err
 }
 
 func (w *WebSocketMessage) reLogin() {
