@@ -188,6 +188,5 @@ func NewConnectionManager(parentCtx context.Context, log pkgDomain.Log, config *
 		cancel:        cancel,
 		log:           log,
 	}
-	//c.StartHeartbeat(ctx)
 	return c
 }
