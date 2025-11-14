@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"context"
+	"log"
 	"strings"
 
 	"github.com/nhirsama/onePushBot/api"
@@ -8,6 +10,7 @@ import (
 	_ "github.com/nhirsama/onePushBot/config"
 	"github.com/nhirsama/onePushBot/pkg/TaskFunc"
 	_ "github.com/nhirsama/onePushBot/pkg/autoSetMsgEmojiLike"
+	"github.com/nhirsama/onePushBot/pkg/nowcoderTracker"
 	_ "github.com/nhirsama/onePushBot/pkg/reply"
 	_ "github.com/nhirsama/onePushBot/pkg/riddle"
 	"github.com/spf13/viper"
@@ -27,6 +30,19 @@ func init() {
 	}, ModuleName: "group_message_token_DB"})
 }
 func Start(apiWsm *api.WebSocketMessage) {
+	apiWsm.Scheduler.AddDailyJob("nowcoderDaily", 18, 0, func(ctx context.Context) error {
+		str, err := nowcoderTracker.PushTodayProblem()
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		groupList := viper.GetIntSlice("DailyGroupList")
+		for _, i := range groupList {
+			apiWsm.SendGroupMsg(int64(i), str, "text")
+		}
+		return nil
+	})
+
 	for _, funcHandle := range TaskFunc.ModuleList {
 		if viper.GetBool(funcHandle.ModuleName + ".Enable") {
 			go funcHandle.TaskFunc(apiWsm)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/spf13/viper"
 )
@@ -38,8 +39,11 @@ func init() {
 
 			fmt.Println("请输入管理员QQ号：")
 			fmt.Scanln(&input)
-			viper.Set("master", input)
-			log.Printf("已设置master为 %s\n", input)
+			inputInt, err := strconv.Atoi(input)
+			if err == nil {
+				viper.Set("master", inputInt)
+				log.Printf("已设置master为 %s\n", input)
+			}
 
 			if err := viper.WriteConfig(); err != nil {
 				if err := viper.WriteConfigAs(configFile); err != nil {

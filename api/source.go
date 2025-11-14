@@ -8,6 +8,8 @@ import (
 	"github.com/asaskevich/EventBus"
 	"github.com/gorilla/websocket"
 	_ "github.com/nhirsama/onePushBot/config"
+	"github.com/nhirsama/onePushBot/internal/domain"
+	"github.com/nhirsama/onePushBot/internal/infrastructure/Scheduler"
 )
 
 type WebSocketMessage struct {
@@ -20,9 +22,10 @@ type WebSocketMessage struct {
 	pubSub             *gochannel.GoChannel
 	responseMap        sync.Map
 	Bus                EventBus.Bus
+	Scheduler          domain.Scheduler
 }
 
-func NewWebSocketMessage(url string) *WebSocketMessage {
+func NewWebSocketMessage(url string) (*WebSocketMessage, error) {
 	var w WebSocketMessage
 	w.url = url
 	w.reLogin()
@@ -30,7 +33,8 @@ func NewWebSocketMessage(url string) *WebSocketMessage {
 	w.heartbeat = make(chan struct{}, 1)
 	//消息总线
 	w.Bus = EventBus.New()
-	return &w
+	w.Scheduler, _ = Scheduler.NewScheduler()
+	return &w, nil
 }
 
 func (w *WebSocketMessage) Close() {

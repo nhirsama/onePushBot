@@ -15,7 +15,7 @@ func Cli() {
 	// 连接 api WebSocket
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	w := api.NewWebSocketMessage(config.WebSocketUrl)
+	w, _ := api.NewWebSocketMessage(config.WebSocketUrl)
 	defer w.Close()
 	go w.Start()
 	go pkg.Start(w)
