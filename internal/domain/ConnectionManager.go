@@ -21,4 +21,9 @@ type ConnectionManager interface {
 	StartHeartbeat(ctx context.Context)
 	OnHeartbeat(callback func())
 	NotifyHeartbeat()
+	// ReadChan 返回只读通道，上层通过 <-ReadChan() 获取从 WebSocket 收到的字节流
+	ReadChan() <-chan []byte
+
+	// WriteChan 返回写通道，上层通过 WriteChan() <- data 发送字节流到 WebSocket
+	WriteChan() chan<- []byte
 }
