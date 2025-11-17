@@ -18,6 +18,7 @@ type client struct {
 	bus        EventBus.Bus
 	connMgr    internalDomain.ConnectionManager
 	dispatcher internalDomain.MessageDispatcher
+	api        internalDomain.ApiDistribute
 	ctx        context.Context
 	cancel     context.CancelFunc
 }
@@ -63,7 +64,6 @@ func NewClient(
 // Start 启动 Napcat 客户端：
 //   - 建立 WebSocket 连接
 //   - 启动心跳监控
-//   - （你可以在 internal/napcat 中补充读取循环，将原始数据喂给 dispatcher.Dispatch）
 func (c *client) Start() error {
 
 	// 1. 建立连接

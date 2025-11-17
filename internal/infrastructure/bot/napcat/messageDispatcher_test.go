@@ -32,7 +32,7 @@ func createRawMessage(postType domain.PostType, additionalFields map[string]inte
 
 func TestNewMessageDispatcher(t *testing.T) {
 	t.Run("创建消息分发器", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher()
+		dispatcher := NewMessageDispatcher(nil, nil, nil)
 
 		if dispatcher == nil {
 			t.Fatal("MessageDispatcher 不应该为 nil")
@@ -58,7 +58,7 @@ func TestNewMessageDispatcher(t *testing.T) {
 
 func TestMessageDispatcher_GetStats(t *testing.T) {
 	t.Run("获取统计信息", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 
 		// 模拟一些统计数据
 		dispatcher.totalMessages.Add(10)
@@ -85,7 +85,7 @@ func TestMessageDispatcher_GetStats(t *testing.T) {
 	})
 
 	t.Run("并发获取统计信息", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 
 		// 并发更新统计
 		done := make(chan bool)
@@ -117,7 +117,7 @@ func TestMessageDispatcher_GetStats(t *testing.T) {
 // ========== 测试 parser ==========
 
 func TestMessageDispatcher_parser(t *testing.T) {
-	dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+	dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 
 	t.Run("解析正常消息", func(t *testing.T) {
 		rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
@@ -266,7 +266,7 @@ func TestMessageDispatcher_parser(t *testing.T) {
 
 func TestMessageDispatcher_Dispatch(t *testing.T) {
 	t.Run("分发消息_PostTypeMessage", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
@@ -290,7 +290,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_PostTypeMetaEvent", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeMetaEvent, map[string]interface{}{
@@ -309,7 +309,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_PostTypeNotice", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeNotice, map[string]interface{}{
@@ -328,7 +328,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_PostTypeMessageSent", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeMessageSent, map[string]interface{}{
@@ -347,7 +347,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_PostTypeRequest", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeRequest, map[string]interface{}{
@@ -366,7 +366,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_PostTypeOther", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := createRawMessage(domain.PostTypeOther, map[string]interface{}{
@@ -385,7 +385,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_解析失败", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		// 无效的 JSON
@@ -406,7 +406,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_统计信息更新", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		// 发送一个会解析失败的消息
@@ -431,7 +431,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 	})
 
 	t.Run("分发消息_延迟统计", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := domain.RawMessage([]byte("invalid"))
@@ -454,7 +454,7 @@ func TestMessageDispatcher_Dispatch(t *testing.T) {
 
 func TestMessageDispatcher_Dispatch_ContextCancel(t *testing.T) {
 	t.Run("上下文取消", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 
 		// 创建一个已取消的上下文
 		ctx, cancel := context.WithCancel(context.Background())
@@ -480,7 +480,7 @@ func TestMessageDispatcher_Dispatch_ContextCancel(t *testing.T) {
 
 func TestMessageDispatcher_Dispatch_Concurrent(t *testing.T) {
 	t.Run("并发分发消息", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		concurrency := 100
@@ -520,7 +520,7 @@ func TestMessageDispatcher_Dispatch_Concurrent(t *testing.T) {
 
 func TestMessageDispatcher_EdgeCases(t *testing.T) {
 	t.Run("空 RawMessage", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		rawMsg := domain.RawMessage([]byte(""))
@@ -539,7 +539,7 @@ func TestMessageDispatcher_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("超大消息", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 		ctx := context.Background()
 
 		// 创建一个大消息（1MB）
@@ -558,7 +558,7 @@ func TestMessageDispatcher_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("特殊字符", func(t *testing.T) {
-		dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+		dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 
 		rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
 			"raw_message": "测试\n换行\t制表符\r回车 emoji😀",
@@ -580,7 +580,7 @@ func TestMessageDispatcher_EdgeCases(t *testing.T) {
 // ========== 性能测试 ==========
 
 func BenchmarkMessageDispatcher_parser(b *testing.B) {
-	dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+	dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 	rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
 		"message_type": "group",
 		"message_id":   123456,
@@ -596,7 +596,7 @@ func BenchmarkMessageDispatcher_parser(b *testing.B) {
 }
 
 func BenchmarkMessageDispatcher_Dispatch(b *testing.B) {
-	dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+	dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 	ctx := context.Background()
 	rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
 		"message_type": "group",
@@ -614,7 +614,7 @@ func BenchmarkMessageDispatcher_Dispatch(b *testing.B) {
 }
 
 func BenchmarkMessageDispatcher_Concurrent(b *testing.B) {
-	dispatcher := NewMessageDispatcher().(*MessageDispatcher)
+	dispatcher := NewMessageDispatcher(nil, nil, nil).(*MessageDispatcher)
 	ctx := context.Background()
 	rawMsg := createRawMessage(domain.PostTypeMessage, map[string]interface{}{
 		"message_type": "group",

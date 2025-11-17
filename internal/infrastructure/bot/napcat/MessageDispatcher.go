@@ -18,7 +18,7 @@ import (
 // MessageDispatcher 消息分发器
 type MessageDispatcher struct {
 	mu  sync.RWMutex
-	bus EventBus.Bus
+	bus *EventBus.Bus
 	// 统计
 	totalMessages   atomic.Int64
 	handledMessages atomic.Int64
@@ -30,7 +30,7 @@ type MessageDispatcher struct {
 
 // NewMessageDispatcher 创建消息分发器
 
-func NewMessageDispatcher(log pkg.Log, manager domain.ConnectionManager, bus EventBus.Bus) domain.MessageDispatcher {
+func NewMessageDispatcher(log pkg.Log, manager domain.ConnectionManager, bus *EventBus.Bus) domain.MessageDispatcher {
 	return &MessageDispatcher{
 		log:     log,
 		manager: manager,
@@ -238,5 +238,5 @@ func (m *MessageDispatcher) publish(topic string, data interface{}) {
 	if m.bus == nil {
 		return
 	}
-	m.bus.Publish(topic, data)
+	(*m.bus).Publish(topic, data)
 }
