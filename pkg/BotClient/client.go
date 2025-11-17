@@ -48,7 +48,7 @@ func NewClient(
 	connMgr := napcat.NewConnectionManager(ctx, log, cfg)
 
 	// 3. 创建消息分发器（负责根据 post_type 分发消息）—— internal/napcat 实现
-	dispatcher := napcat.NewMessageDispatcher(log, connMgr, bus)
+	dispatcher := napcat.NewMessageDispatcher(log, connMgr, &bus)
 
 	return &client{
 		cfg:        cfg,
