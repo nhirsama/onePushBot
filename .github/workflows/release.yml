@@ -9,10 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build and Release
+  build-linux:
+    name: Build Linux Binaries
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,30 +24,27 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Install C++ toolchain (for gojieba / cgo)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential g++
+
       - name: Get version
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build binaries
+      - name: Build Linux binaries
         run: |
+          export CGO_ENABLED=1
+
           # Linux AMD64
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o onePushBot-linux-amd64 .
-          
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o onePushBot-linux-amd64 .
+
           # Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o onePushBot-linux-arm64 .
-          
-          # Windows AMD64
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o onePushBot-windows-amd64.exe .
-          
-          # macOS AMD64
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o onePushBot-darwin-amd64 .
-          
-          # macOS ARM64
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o onePushBot-darwin-arm64 .
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o onePushBot-linux-arm64 .
 
       - name: Create checksums
-        run: |
-          sha256sum onePushBot-* > checksums.txt
+        run: sha256sum onePushBot-* > checksums.txt
 
       - name: Generate changelog
         id: changelog
@@ -61,55 +58,48 @@ jobs:
           fi
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: onePushBot ${{ steps.get_version.outputs.VERSION }}
           body: |
             ## onePushBot ${{ steps.get_version.outputs.VERSION }}
-            
-            ### 下载说明
-            
-            请根据您的操作系统选择对应的二进制文件：
-            - **Linux (x64)**: `onePushBot-linux-amd64`
-            - **Linux (ARM64)**: `onePushBot-linux-arm64`
-            - **Windows (x64)**: `onePushBot-windows-amd64.exe`
-            - **macOS (Intel)**: `onePushBot-darwin-amd64`
-            - **macOS (Apple Silicon)**: `onePushBot-darwin-arm64`
-            
-            ### 安装步骤
-            
-            1. 下载对应平台的二进制文件
-            2. 赋予执行权限（Linux/macOS）：`chmod +x onePushBot-*`
-            3. 运行程序：`./onePushBot-*` 或 `onePushBot-windows-amd64.exe`
-            4. 首次运行会提示配置 API 地址、token 和管理员 QQ 号
-            
-            ### 更新日志
-            
-            ${{ steps.changelog.outputs.CHANGELOG }}
-            
+
+            ### Linux 下载
+
+            - **Linux (amd64)**: `onePushBot-linux-amd64`
+            - **Linux (arm64)**: `onePushBot-linux-arm64`
+
+            赋予执行权限：
+            ```bash
+            chmod +x onePushBot-*
+            ```
+
+            ### 源码
+
+            Release 内附带当前版本源码压缩包（GitHub 自动提供）。
+
             ### 校验和
-            
-            请使用 `checksums.txt` 验证下载文件的完整性：
+
+            可使用以下命令验证二进制完整性：
             ```bash
             sha256sum -c checksums.txt
             ```
+
+            ### 更新日志
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
           files: |
             onePushBot-linux-amd64
             onePushBot-linux-arm64
-            onePushBot-windows-amd64.exe
-            onePushBot-darwin-amd64
-            onePushBot-darwin-arm64
             checksums.txt
-          draft: false
-          prerelease: ${{ contains(steps.get_version.outputs.VERSION, 'alpha') || contains(steps.get_version.outputs.VERSION, 'beta') || contains(steps.get_version.outputs.VERSION, 'rc') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ steps.get_version.outputs.VERSION }}
           path: |
-            onePushBot-*
+            onePushBot-linux-amd64
+            onePushBot-linux-arm64
             checksums.txt
           retention-days: 30
