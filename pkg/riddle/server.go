@@ -106,12 +106,28 @@ func riddleHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("内部错误：编码 JSON 响应失败 (200 响应): %v", err)
 		return
 	}
-	log.Printf("已处理请求 %s，返回 HTTP 状态码: %d\n", r.URL.Path, http.StatusOK)
+	//log.Printf("已处理请求 %s，返回 HTTP 状态码: %d\n", r.URL.Path, http.StatusOK)
 }
+func riddleGuestHandler(w http.ResponseWriter, r *http.Request) {
+	response := Response{
+		Code:    http.StatusOK,
+		UserID:  "作者",
+		Message: "flag{84983c60f7daadc1cb8698621f802c0d9f9a3c3c295c810748fb048115c186ec}",
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// 发送给客户端的错误信息
+		http.Error(w, "JSON 编码错误", http.StatusInternalServerError)
 
+		log.Printf("内部错误：编码 JSON 响应失败 (200 响应): %v", err)
+		return
+	}
+}
 func Server(web *api.WebSocketMessage) {
 	serverPort := 12396
-	http.HandleFunc("/riddle25", riddleHandler)
+	// student 的 sha256 值
+	http.HandleFunc("/riddle-264c8c381bf16c982a4e59b0dd4c6f7808c51a05f64c35db42cc78a2a72875bb", riddleHandler)
+	// guest 的 sha256 值
+	http.HandleFunc("/riddle-84983c60f7daadc1cb8698621f802c0d9f9a3c3c295c810748fb048115c186ec", riddleGuestHandler)
 	log.Printf("服务器启动于 http://localhost:%d.", serverPort)
 	w := WebSocketMessage{WebSocketMessage: web}
 	go w.UpdateMessage()
