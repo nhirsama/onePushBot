@@ -7,13 +7,18 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	model "github.com/nhirsama/onePushBot/internal/platform/telegram"
 )
 
-var errBotStarted = errors.New("telegram bot client already started")
+var (
+	errBotStarted = errors.New("telegram bot client already started")
+	errBotClosed  = errors.New("telegram bot client already closed")
+)
 
 // Client 定义 Telegram Bot 能力。
 type Client interface {
@@ -41,8 +46,11 @@ type client struct {
 
 	startMu sync.Mutex
 	started bool
+	closed  bool
 	cancel  context.CancelFunc
 	runWG   sync.WaitGroup
+
+	accepting atomic.Bool
 
 	eventCh chan base.Event
 }
@@ -99,6 +107,9 @@ func (c *client) Start(ctx context.Context) error {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
 
+	if c.closed {
+		return errBotClosed
+	}
 	if c.started {
 		return errBotStarted
 	}
@@ -106,6 +117,7 @@ func (c *client) Start(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 	c.started = true
+	c.accepting.Store(true)
 	c.setStatus(base.StatusStarting)
 
 	c.runWG.Add(1)
@@ -115,19 +127,29 @@ func (c *client) Start(ctx context.Context) error {
 
 func (c *client) Close(ctx context.Context) error {
 	c.startMu.Lock()
-	if !c.started {
+	if c.closed {
 		c.startMu.Unlock()
 		return nil
 	}
+	started := c.started
+	c.started = false
+	c.closed = true
+	c.accepting.Store(false)
 	cancel := c.cancel
 	c.cancel = nil
-	c.started = false
 	c.startMu.Unlock()
+
+	if !started {
+		c.setStatus(base.StatusClosed)
+		return nil
+	}
 
 	if cancel != nil {
 		cancel()
 	}
-	c.native.StopReceivingUpdates()
+	if c.native != nil {
+		c.native.StopReceivingUpdates()
+	}
 	c.setStatus(base.StatusClosing)
 
 	done := make(chan struct{})
@@ -142,7 +164,6 @@ func (c *client) Close(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	close(c.eventCh)
 	c.setStatus(base.StatusClosed)
 	return nil
 }
@@ -187,6 +208,7 @@ func (c *client) SetCommands(ctx context.Context, commands []model.Command) erro
 
 func (c *client) run(ctx context.Context) {
 	defer c.runWG.Done()
+	defer c.accepting.Store(false)
 
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = c.cfg.UpdateTimeout
@@ -234,10 +256,7 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 					Type: chatTypeFromChat(msg.Chat),
 					Name: msg.Chat.Title,
 				},
-				Sender: base.User{
-					ID:   strconv.FormatInt(msg.From.ID, 10),
-					Name: strings.TrimSpace(strings.Join([]string{msg.From.FirstName, msg.From.LastName}, " ")),
-				},
+				Sender:       telegramUser(msg.From),
 				Text:         msg.Text,
 				Time:         msg.Time(),
 				PlatformData: *msg,
@@ -247,23 +266,27 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 		c.nonBlockingPublish(event)
 	case update.CallbackQuery != nil:
 		query := update.CallbackQuery
+		chat := base.Chat{Type: base.ChatTypeUnknown}
+		eventTime := time.Now()
+		if query.Message != nil {
+			chat = base.Chat{
+				ID:   strconv.FormatInt(query.Message.Chat.ID, 10),
+				Type: chatTypeFromChat(query.Message.Chat),
+				Name: query.Message.Chat.Title,
+			}
+			eventTime = query.Message.Time()
+		}
+
 		event := base.Event{
 			ID:       query.ID,
 			Platform: base.PlatformTelegramBot,
 			Kind:     base.EventKindNotice,
 			SubType:  "callback_query",
-			Time:     query.Message.Time(),
+			Time:     eventTime,
 			Notice: &base.Notice{
-				Type: "callback_query",
-				Chat: base.Chat{
-					ID:   strconv.FormatInt(query.Message.Chat.ID, 10),
-					Type: chatTypeFromChat(query.Message.Chat),
-					Name: query.Message.Chat.Title,
-				},
-				User: base.User{
-					ID:   strconv.FormatInt(query.From.ID, 10),
-					Name: strings.TrimSpace(strings.Join([]string{query.From.FirstName, query.From.LastName}, " ")),
-				},
+				Type:         "callback_query",
+				Chat:         chat,
+				User:         telegramUser(query.From),
 				PlatformData: *query,
 			},
 			Raw: update,
@@ -273,6 +296,10 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 }
 
 func (c *client) nonBlockingPublish(event base.Event) {
+	if !c.accepting.Load() {
+		return
+	}
+
 	select {
 	case c.eventCh <- event:
 	default:
@@ -296,5 +323,16 @@ func chatTypeFromChat(chat *tgbotapi.Chat) base.ChatType {
 		return base.ChatTypeChannel
 	default:
 		return base.ChatTypeGroup
+	}
+}
+
+func telegramUser(user *tgbotapi.User) base.User {
+	if user == nil {
+		return base.User{}
+	}
+
+	return base.User{
+		ID:   strconv.FormatInt(user.ID, 10),
+		Name: strings.TrimSpace(strings.Join([]string{user.FirstName, user.LastName}, " ")),
 	}
 }

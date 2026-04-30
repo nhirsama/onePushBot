@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
@@ -17,7 +19,10 @@ import (
 	base "github.com/nhirsama/onePushBot/internal/platform"
 )
 
-var errFeishuStarted = errors.New("feishu client already started")
+var (
+	errFeishuStarted = errors.New("feishu client already started")
+	errFeishuClosed  = errors.New("feishu client already closed")
+)
 
 // Client 定义飞书平台能力。
 type Client interface {
@@ -47,8 +52,11 @@ type client struct {
 
 	startMu sync.Mutex
 	started bool
+	closed  bool
 	cancel  context.CancelFunc
 	runWG   sync.WaitGroup
+
+	accepting atomic.Bool
 
 	eventCh chan base.Event
 }
@@ -125,6 +133,9 @@ func (c *client) Start(ctx context.Context) error {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
 
+	if c.closed {
+		return errFeishuClosed
+	}
 	if c.started {
 		return errFeishuStarted
 	}
@@ -132,26 +143,36 @@ func (c *client) Start(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 	c.started = true
+	c.accepting.Store(true)
 	c.setStatus(base.StatusRunning)
 
 	c.runWG.Add(1)
 	go func() {
 		defer c.runWG.Done()
 		<-runCtx.Done()
+		c.accepting.Store(false)
 	}()
 	return nil
 }
 
 func (c *client) Close(ctx context.Context) error {
 	c.startMu.Lock()
-	if !c.started {
+	if c.closed {
 		c.startMu.Unlock()
 		return nil
 	}
+	started := c.started
+	c.started = false
+	c.closed = true
+	c.accepting.Store(false)
 	cancel := c.cancel
 	c.cancel = nil
-	c.started = false
 	c.startMu.Unlock()
+
+	if !started {
+		c.setStatus(base.StatusClosed)
+		return nil
+	}
 
 	if cancel != nil {
 		cancel()
@@ -170,7 +191,6 @@ func (c *client) Close(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	close(c.eventCh)
 	c.setStatus(base.StatusClosed)
 	return nil
 }
@@ -321,6 +341,11 @@ func (c *client) handleMessageRead(ctx context.Context, event *larkim.P2MessageR
 }
 
 func (c *client) publish(event base.Event) {
+	// Webhook 关闭后仍可能晚到，直接丢弃，避免继续向停用客户端投递事件。
+	if !c.accepting.Load() {
+		return
+	}
+
 	select {
 	case c.eventCh <- event:
 	default:
@@ -413,11 +438,11 @@ func parseMilliTime(value *string) time.Time {
 	if value == nil || *value == "" {
 		return time.Now()
 	}
-	ms, err := time.ParseDuration(*value + "ms")
+	ms, err := strconv.ParseInt(*value, 10, 64)
 	if err != nil {
 		return time.Now()
 	}
-	return time.Unix(0, ms.Nanoseconds())
+	return time.UnixMilli(ms)
 }
 
 func derefString(value *string) string {

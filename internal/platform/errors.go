@@ -9,4 +9,5 @@ var (
 	ErrClientExists       = errors.New("platform client already registered")
 	ErrClientInvalid      = errors.New("platform client is invalid")
 	ErrHubStarted         = errors.New("platform hub already started")
+	ErrHubClosed          = errors.New("platform hub already closed")
 )

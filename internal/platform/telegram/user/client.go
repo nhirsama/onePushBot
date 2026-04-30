@@ -21,7 +21,10 @@ import (
 	model "github.com/nhirsama/onePushBot/internal/platform/telegram"
 )
 
-var errUserStarted = errors.New("telegram user client already started")
+var (
+	errUserStarted = errors.New("telegram user client already started")
+	errUserClosed  = errors.New("telegram user client already closed")
+)
 
 // MessageFilter 用于订阅用户态消息。
 type MessageFilter struct {
@@ -66,8 +69,10 @@ type client struct {
 
 	startMu sync.Mutex
 	started bool
+	closed  bool
 	cancel  context.CancelFunc
 	runWG   sync.WaitGroup
+	accept  atomic.Bool
 
 	readyOnce sync.Once
 	readyCh   chan struct{}
@@ -174,16 +179,17 @@ func (c *client) Start(ctx context.Context) error {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
 
+	if c.closed {
+		return errUserClosed
+	}
 	if c.started {
 		return errUserStarted
-	}
-	if c.auth == nil {
-		return fmt.Errorf("telegram 用户态客户端缺少授权提供器")
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 	c.started = true
+	c.accept.Store(true)
 	c.setStatus(base.StatusStarting)
 
 	c.runWG.Add(1)
@@ -193,14 +199,24 @@ func (c *client) Start(ctx context.Context) error {
 
 func (c *client) Close(ctx context.Context) error {
 	c.startMu.Lock()
-	if !c.started {
+	if c.closed {
 		c.startMu.Unlock()
 		return nil
 	}
+	started := c.started
+	c.started = false
+	c.closed = true
+	c.accept.Store(false)
 	cancel := c.cancel
 	c.cancel = nil
-	c.started = false
 	c.startMu.Unlock()
+
+	if !started {
+		c.closeSubscribers()
+		c.setReady(errUserClosed)
+		c.setStatus(base.StatusClosed)
+		return nil
+	}
 
 	if cancel != nil {
 		cancel()
@@ -220,7 +236,6 @@ func (c *client) Close(ctx context.Context) error {
 	}
 
 	c.closeSubscribers()
-	close(c.eventCh)
 	c.setStatus(base.StatusClosed)
 	return nil
 }
@@ -311,6 +326,12 @@ func (c *client) SubscribeMessages(ctx context.Context, filter MessageFilter) (<
 
 func (c *client) run(ctx context.Context) {
 	defer c.runWG.Done()
+	defer c.accept.Store(false)
+	defer func() {
+		if err := ctx.Err(); err != nil {
+			c.setReady(err)
+		}
+	}()
 
 	err := c.native.Run(ctx, func(runCtx context.Context) error {
 		if err := c.ensureAuthorized(runCtx); err != nil {
@@ -344,6 +365,9 @@ func (c *client) ensureAuthorized(ctx context.Context) error {
 	if status.Authorized {
 		return nil
 	}
+	if c.auth == nil {
+		return fmt.Errorf("telegram 用户态客户端未授权，且缺少授权提供器")
+	}
 
 	flow := tgauth.NewFlow(authenticator{provider: c.auth}, tgauth.SendCodeOptions{})
 	return flow.Run(ctx, c.native.Auth())
@@ -366,6 +390,10 @@ func (c *client) handleUpdateNewChannelMessage(ctx context.Context, entities tg.
 }
 
 func (c *client) publishMessage(ctx context.Context, entities tgpeer.Entities, msg tg.NotEmptyMessage, fallbackSubType string) error {
+	if !c.accept.Load() {
+		return nil
+	}
+
 	c.rememberPeerEntities(entities)
 	if peer, err := entities.ExtractPeer(msg.GetPeerID()); err == nil {
 		if chatID, ok := peerClassID(msg.GetPeerID()); ok {

@@ -18,6 +18,7 @@ import (
 
 var (
 	errClientStarted  = errors.New("napcat client already started")
+	errClientClosed   = errors.New("napcat client already closed")
 	errClientNotReady = errors.New("napcat client is not connected")
 )
 
@@ -42,6 +43,7 @@ type client struct {
 
 	startMu sync.Mutex
 	started bool
+	closed  bool
 	cancel  context.CancelFunc
 	runWG   sync.WaitGroup
 
@@ -106,6 +108,9 @@ func (c *client) Start(ctx context.Context) error {
 	c.startMu.Lock()
 	defer c.startMu.Unlock()
 
+	if c.closed {
+		return errClientClosed
+	}
 	if c.started {
 		return errClientStarted
 	}
@@ -122,13 +127,21 @@ func (c *client) Start(ctx context.Context) error {
 
 func (c *client) Close(ctx context.Context) error {
 	c.startMu.Lock()
-	if !c.started {
+	if c.closed {
 		c.startMu.Unlock()
 		return nil
 	}
+	started := c.started
+	c.started = false
+	c.closed = true
 	cancel := c.cancel
 	c.cancel = nil
 	c.startMu.Unlock()
+
+	if !started {
+		c.setStatus(base.StatusClosed)
+		return nil
+	}
 
 	if cancel != nil {
 		cancel()
@@ -462,21 +475,7 @@ func (c *client) setStatus(status base.Status) {
 }
 
 func (c *client) finishClose() {
-	c.startMu.Lock()
-	wasStarted := c.started
-	c.started = false
-	c.startMu.Unlock()
-
-	if !wasStarted {
-		return
-	}
-
 	c.setStatus(base.StatusClosed)
-	select {
-	case <-c.doneCh:
-	default:
-	}
-	close(c.eventCh)
 }
 
 func buildDialTargets(rawTarget, token string) ([]string, error) {
