@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/asaskevich/EventBus"
-	"github.com/nhirsama/onePushBot/config"
 	"github.com/nhirsama/onePushBot/internal/domain"
 	pkg "github.com/nhirsama/onePushBot/pkg/domain"
 )
@@ -103,8 +102,8 @@ func (m *MessageDispatcher) HandlerPostTypeMessage(ctx context.Context, msg *dom
 	case domain.MessageTypeGroup:
 		m.publish("groupMessage", msg)
 		m.log.Debug("接收到群组信息:", "mes", msg)
-		// 如果群消息里有 @SelfId，则再发 atMe 事件
-		if strings.Contains(msg.RawMessage, fmt.Sprintf("[CQ:at,qq=%d", config.SelfId)) {
+		// 直接使用消息里的 self_id，避免依赖全局配置状态。
+		if msg.SelfId != 0 && strings.Contains(msg.RawMessage, fmt.Sprintf("[CQ:at,qq=%d", msg.SelfId)) {
 			m.publish("atMe", msg)
 			m.log.Debug("接收到艾特信息")
 		}

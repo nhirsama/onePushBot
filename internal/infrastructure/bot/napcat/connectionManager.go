@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,9 +32,11 @@ type ConnectionManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	// 读写通道 & 启动标记
-	readCh  chan []byte
-	writeCh chan []byte
-	ioOnce  sync.Once // 确保读写协程只启动一次
+	readCh        chan []byte
+	writeCh       chan []byte
+	ioOnce        sync.Once // 确保读写协程只启动一次
+	closeOnce     sync.Once
+	heartbeatOnce sync.Once
 }
 
 func (c *ConnectionManager) Connect(ctx context.Context) error {
@@ -66,28 +69,17 @@ func (c *ConnectionManager) Connect(ctx context.Context) error {
 }
 
 func (c *ConnectionManager) login(ctx context.Context) (*websocket.Conn, error) {
-	host := c.BotConfig.ApiUrl
-	if host == "" {
+	target := strings.TrimSpace(c.BotConfig.ApiUrl)
+	if target == "" {
 		return nil, fmt.Errorf("ApiUrl 不能为空")
 	}
 
-	token := c.BotConfig.Token
-
-	q := url.Values{}
-	if token != "" {
-		q.Set("access_token", token)
+	targets, err := buildDialTargets(target, c.BotConfig.Token)
+	if err != nil {
+		return nil, err
 	}
-	rawQuery := q.Encode()
 
-	dial := func(scheme string) (*websocket.Conn, error) {
-		u := url.URL{
-			Scheme:   scheme,
-			Host:     host,
-			Path:     "/ws",
-			RawQuery: rawQuery,
-		}
-		fullURL := u.String()
-
+	dial := func(fullURL string) (*websocket.Conn, error) {
 		conn, _, err := websocket.DefaultDialer.DialContext(ctx, fullURL, nil)
 		if err != nil {
 			c.log.Error("WebSocket 连接失败", "url", fullURL, "err", err)
@@ -98,9 +90,8 @@ func (c *ConnectionManager) login(ctx context.Context) (*websocket.Conn, error) 
 	}
 
 	var lastErr error
-	// 无视用户给的协议，固定先试 wss，再试 ws
-	for _, scheme := range []string{"wss", "ws"} {
-		if conn, err := dial(scheme); err == nil {
+	for _, fullURL := range targets {
+		if conn, err := dial(fullURL); err == nil {
 			return conn, nil
 		} else {
 			lastErr = err
@@ -111,6 +102,69 @@ func (c *ConnectionManager) login(ctx context.Context) (*websocket.Conn, error) 
 		return nil, fmt.Errorf("WebSocket 连接失败: %w", lastErr)
 	}
 	return nil, fmt.Errorf("WebSocket 连接失败")
+}
+
+func buildDialTargets(rawTarget, token string) ([]string, error) {
+	hasScheme := strings.Contains(rawTarget, "://")
+
+	var (
+		parsed *url.URL
+		err    error
+	)
+	if hasScheme {
+		parsed, err = url.Parse(rawTarget)
+	} else {
+		parsed, err = url.Parse("//" + rawTarget)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("解析 ApiUrl 失败: %w", err)
+	}
+	if parsed.Host == "" {
+		return nil, fmt.Errorf("ApiUrl 无效: %s", rawTarget)
+	}
+
+	if parsed.Path == "" || parsed.Path == "/" {
+		parsed.Path = "/ws"
+	}
+
+	query := parsed.Query()
+	if token != "" && query.Get("access_token") == "" {
+		query.Set("access_token", token)
+	}
+	parsed.RawQuery = query.Encode()
+
+	schemes := []string{"wss", "ws"}
+	if hasScheme {
+		switch parsed.Scheme {
+		case "ws":
+			schemes = []string{"ws", "wss"}
+		case "wss":
+			schemes = []string{"wss", "ws"}
+		case "http":
+			parsed.Scheme = "ws"
+			schemes = []string{"ws", "wss"}
+		case "https":
+			parsed.Scheme = "wss"
+			schemes = []string{"wss", "ws"}
+		default:
+			return nil, fmt.Errorf("不支持的 WebSocket 协议: %s", parsed.Scheme)
+		}
+	}
+
+	targets := make([]string, 0, len(schemes))
+	seen := make(map[string]struct{}, len(schemes))
+	for _, scheme := range schemes {
+		u := *parsed
+		u.Scheme = scheme
+		fullURL := u.String()
+		if _, ok := seen[fullURL]; ok {
+			continue
+		}
+		seen[fullURL] = struct{}{}
+		targets = append(targets, fullURL)
+	}
+
+	return targets, nil
 }
 
 func (c *ConnectionManager) Reconnect(ctx context.Context) error {
@@ -148,25 +202,33 @@ func (c *ConnectionManager) Reconnect(ctx context.Context) error {
 }
 
 func (c *ConnectionManager) Close() error {
-	c.cancel()
-	c.ctx.Done()
-	c.wg.Wait()
+	var closeErr error
+	c.closeOnce.Do(func() {
+		c.cancel()
 
+		conn := c.takeConn(nil)
+		if conn != nil {
+			closeErr = conn.Close()
+		}
+
+		c.wg.Wait()
+	})
+
+	return closeErr
+}
+
+func (c *ConnectionManager) takeConn(target *websocket.Conn) *websocket.Conn {
 	c.connMu.Lock()
 	defer c.connMu.Unlock()
 
-	if c.conn != nil {
-		err := c.conn.Close()
-		if err == nil {
-			c.conn = nil
-			c.connected.Store(false)
-			return nil
-		}
-		c.connected.Store(false)
-		return err
+	if target != nil && c.conn != target {
+		return nil
 	}
 
-	return nil
+	conn := c.conn
+	c.conn = nil
+	c.connected.Store(false)
+	return conn
 }
 
 func (c *ConnectionManager) IsConnected() bool {
@@ -182,7 +244,11 @@ func (c *ConnectionManager) GetReconnectCount() int {
 }
 
 func (c *ConnectionManager) StartHeartbeat(ctx context.Context) {
-	go c.heartbeatLoop(ctx)
+	_ = ctx
+	c.heartbeatOnce.Do(func() {
+		c.wg.Add(1)
+		go c.heartbeatLoop()
+	})
 }
 
 func (c *ConnectionManager) OnHeartbeat(callback func()) {
@@ -197,8 +263,7 @@ func (c *ConnectionManager) NotifyHeartbeat() {
 }
 
 // heartbeatLoop 心跳监控循环
-func (c *ConnectionManager) heartbeatLoop(ctx context.Context) {
-	c.wg.Add(1)
+func (c *ConnectionManager) heartbeatLoop() {
 	timer := time.NewTimer(time.Duration(c.HeartbeatTimeout) * time.Second)
 	defer func() {
 		timer.Stop()
@@ -231,7 +296,9 @@ func (c *ConnectionManager) heartbeatLoop(ctx context.Context) {
 		case <-timer.C:
 			// 心跳超时，尝试重连
 			c.log.Warn("心跳超时，正在重新连接")
-			c.connected.Store(false)
+			if failedConn := c.takeConn(nil); failedConn != nil {
+				_ = failedConn.Close()
+			}
 			if err := c.Reconnect(c.ctx); err != nil {
 				c.log.Error("重新连接失败", "err", err)
 			}
@@ -277,8 +344,6 @@ func (c *ConnectionManager) readLoop() {
 	defer c.wg.Done()
 	c.log.Debug("WebSocket 读协程已启动")
 
-	timeout := time.Duration(c.HeartbeatTimeout) * time.Second
-
 	for {
 		// 全局 context 被取消时退出
 		select {
@@ -299,14 +364,12 @@ func (c *ConnectionManager) readLoop() {
 			continue
 		}
 
-		// 设置读超时，防止 ReadMessage 无限阻塞
-		_ = conn.SetReadDeadline(time.Now().Add(timeout))
-
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			c.log.Warn("读协程读取 WebSocket 消息失败，等待重连", "err", err)
-			// 这里不直接退出，让重连逻辑重新建立连接后继续读
-			c.connected.Store(false)
+			if failedConn := c.takeConn(conn); failedConn != nil {
+				_ = failedConn.Close()
+			}
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
@@ -350,7 +413,9 @@ func (c *ConnectionManager) writeLoop() {
 
 			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 				c.log.Error("写协程发送 WebSocket 消息失败", "err", err)
-				c.connected.Store(false)
+				if failedConn := c.takeConn(conn); failedConn != nil {
+					_ = failedConn.Close()
+				}
 				// 等待外部重连后再继续
 				continue
 			}

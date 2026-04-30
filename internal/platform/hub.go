@@ -1,0 +1,132 @@
+package platform
+
+import (
+	"context"
+	"sync"
+)
+
+// Hub 把平台客户端和统一总线连接起来。
+type Hub interface {
+	Register(client Client) error
+	Start(ctx context.Context) error
+	Close(ctx context.Context) error
+	Bus() Bus
+	Get(platform Platform) (Client, bool)
+	All() []Client
+}
+
+type hub struct {
+	bus      Bus
+	registry Registry
+
+	mu      sync.Mutex
+	started bool
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+}
+
+// NewHub 创建一个默认使用内存总线的平台 Hub。
+func NewHub(bus Bus) Hub {
+	if bus == nil {
+		bus = NewMemoryBus()
+	}
+	return &hub{
+		bus:      bus,
+		registry: NewRegistry(),
+	}
+}
+
+func (h *hub) Register(client Client) error {
+	h.mu.Lock()
+	started := h.started
+	h.mu.Unlock()
+	if started {
+		return ErrHubStarted
+	}
+	return h.registry.Register(client)
+}
+
+func (h *hub) Start(ctx context.Context) error {
+	h.mu.Lock()
+	if h.started {
+		h.mu.Unlock()
+		return ErrHubStarted
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	h.started = true
+	h.cancel = cancel
+	h.mu.Unlock()
+
+	for _, client := range h.registry.All() {
+		if err := client.Start(runCtx); err != nil {
+			cancel()
+			h.wg.Wait()
+			_ = h.bus.Close()
+			return err
+		}
+
+		h.wg.Add(1)
+		go h.forward(runCtx, client)
+	}
+
+	return nil
+}
+
+func (h *hub) Close(ctx context.Context) error {
+	h.mu.Lock()
+	cancel := h.cancel
+	h.cancel = nil
+	h.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		h.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	for _, client := range h.registry.All() {
+		if err := client.Close(ctx); err != nil {
+			return err
+		}
+	}
+
+	return h.bus.Close()
+}
+
+func (h *hub) Bus() Bus {
+	return h.bus
+}
+
+func (h *hub) Get(platform Platform) (Client, bool) {
+	return h.registry.Get(platform)
+}
+
+func (h *hub) All() []Client {
+	return h.registry.All()
+}
+
+func (h *hub) forward(ctx context.Context, client Client) {
+	defer h.wg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-client.Events():
+			if !ok {
+				return
+			}
+			_ = h.bus.Publish(ctx, event)
+		}
+	}
+}

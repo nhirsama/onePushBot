@@ -15,11 +15,13 @@ type Auth struct {
 	queue   []*VerifyResult
 	mu      sync.RWMutex
 	keyRing openpgp.EntityList
+	now     func() time.Time
 }
 
 func NewAuth() *Auth {
 	Auth := &Auth{
 		pubs: make(map[string]struct{}),
+		now:  time.Now,
 	}
 	return Auth
 }
@@ -32,8 +34,9 @@ func (a *Auth) Authenticate(message []byte) (string, bool) {
 		log.Println("invalid signature", re.Err)
 		return "", false
 	} else {
+		now := a.now().Unix()
 		// 丢弃五分钟前的所有签名
-		if time.Now().Unix()-re.SignedAt > 300 {
+		if now-re.SignedAt > 300 {
 			log.Println("signature expired")
 			return "", false
 		}
@@ -41,8 +44,9 @@ func (a *Auth) Authenticate(message []byte) (string, bool) {
 		hashkey := re.Hash + strconv.FormatInt(re.SignedAt, 10)
 
 		a.mu.Lock()
+		defer a.mu.Unlock()
 		// 使用队列和哈希表查重和去除超时记录
-		for len(a.queue) > 0 && time.Now().Unix()-a.queue[0].SignedAt > 300 {
+		for len(a.queue) > 0 && now-a.queue[0].SignedAt > 300 {
 			newHashKey := a.queue[0].Hash + strconv.FormatInt(a.queue[0].SignedAt, 10)
 			delete(a.pubs, newHashKey)
 			a.queue = a.queue[1:]
@@ -52,7 +56,6 @@ func (a *Auth) Authenticate(message []byte) (string, bool) {
 		}
 		a.queue = append(a.queue, &re)
 		a.pubs[hashkey] = struct{}{}
-		defer a.mu.Unlock()
 		return string(re.Message), true
 	}
 }

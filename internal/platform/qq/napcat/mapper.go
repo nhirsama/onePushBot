@@ -1,0 +1,333 @@
+package napcat
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
+	base "github.com/nhirsama/onePushBot/internal/platform"
+)
+
+func mapEnvelopeToEvent(raw rawEnvelope, fallbackSelfID string) (base.Event, bool, error) {
+	switch raw.PostType {
+	case "message", "message_sent":
+		msg, err := mapMessage(raw, fallbackSelfID)
+		if err != nil {
+			return base.Event{}, false, err
+		}
+		subType := raw.MessageType
+		if raw.PostType == "message_sent" {
+			subType = "sent_" + raw.MessageType
+		}
+		return base.Event{
+			ID:       buildEventID(raw, msg.ID, subType),
+			Platform: base.PlatformQQ,
+			Kind:     base.EventKindMessage,
+			SubType:  subType,
+			Time:     msg.Time,
+			Message:  &msg,
+			Raw:      raw,
+		}, true, nil
+	case "notice":
+		notice := mapNotice(raw)
+		return base.Event{
+			ID:       buildEventID(raw, "", notice.Type),
+			Platform: base.PlatformQQ,
+			Kind:     base.EventKindNotice,
+			SubType:  notice.Type,
+			Time:     eventTime(raw.Time),
+			Notice:   &notice,
+			Raw:      raw,
+		}, true, nil
+	case "request":
+		request := mapRequest(raw)
+		return base.Event{
+			ID:       buildEventID(raw, "", request.Type),
+			Platform: base.PlatformQQ,
+			Kind:     base.EventKindRequest,
+			SubType:  request.Type,
+			Time:     eventTime(raw.Time),
+			Request:  &request,
+			Raw:      raw,
+		}, true, nil
+	case "meta_event":
+		subType := raw.MetaEventType
+		if raw.SubType != "" {
+			subType = raw.MetaEventType + "." + raw.SubType
+		}
+		return base.Event{
+			ID:       buildEventID(raw, "", subType),
+			Platform: base.PlatformQQ,
+			Kind:     base.EventKindSystem,
+			SubType:  subType,
+			Time:     eventTime(raw.Time),
+			Raw:      raw,
+		}, true, nil
+	case "":
+		if raw.Status != "" || raw.Echo != "" {
+			return base.Event{
+				ID:       buildEventID(raw, "", "api_response"),
+				Platform: base.PlatformQQ,
+				Kind:     base.EventKindRaw,
+				SubType:  "api_response",
+				Time:     time.Now(),
+				Raw:      raw,
+			}, true, nil
+		}
+		return base.Event{}, false, nil
+	default:
+		return base.Event{
+			ID:       buildEventID(raw, "", raw.PostType),
+			Platform: base.PlatformQQ,
+			Kind:     base.EventKindRaw,
+			SubType:  raw.PostType,
+			Time:     eventTime(raw.Time),
+			Raw:      raw,
+		}, true, nil
+	}
+}
+
+func mapMessage(raw rawEnvelope, fallbackSelfID string) (base.Message, error) {
+	segments, text := parseSegments(raw.Message, raw.RawMessage)
+	sender, _ := parseSender(raw.Sender)
+
+	chat := base.Chat{
+		ID:   normalizeID(raw.GroupID),
+		Type: base.ChatTypeGroup,
+		Name: raw.GroupName,
+	}
+	if raw.MessageType == "private" {
+		chat = base.Chat{
+			ID:   normalizeID(raw.UserID),
+			Type: base.ChatTypePrivate,
+		}
+	}
+
+	senderID := normalizeID(raw.UserID)
+	if sender.ID != "" {
+		senderID = sender.ID
+	}
+	if senderID == "" && fallbackSelfID != "" && raw.PostType == "message_sent" {
+		senderID = fallbackSelfID
+	}
+
+	msg := base.Message{
+		ID:           normalizeID(raw.MessageID),
+		Chat:         chat,
+		Sender:       base.User{ID: senderID, Name: sender.Name},
+		Text:         text,
+		Segments:     segments,
+		Time:         eventTime(raw.Time),
+		PlatformData: raw,
+	}
+	if msg.Text == "" && raw.RawMessage != "" {
+		msg.Text = raw.RawMessage
+	}
+	return msg, nil
+}
+
+func mapNotice(raw rawEnvelope) base.Notice {
+	chat := base.Chat{
+		ID:   normalizeID(raw.GroupID),
+		Type: base.ChatTypeGroup,
+		Name: raw.GroupName,
+	}
+	if chat.ID == "" {
+		chat = base.Chat{
+			ID:   normalizeID(raw.UserID),
+			Type: base.ChatTypePrivate,
+		}
+	}
+
+	noticeType := raw.NoticeType
+	if noticeType == "" {
+		noticeType = raw.SubType
+	}
+
+	return base.Notice{
+		Type:   noticeType,
+		Chat:   chat,
+		User:   base.User{ID: normalizeID(raw.UserID)},
+		Target: base.User{ID: normalizeID(raw.TargetID)},
+		PlatformData: map[string]any{
+			"sub_type": raw.SubType,
+			"raw":      raw,
+		},
+	}
+}
+
+func mapRequest(raw rawEnvelope) base.Request {
+	chat := base.Chat{
+		ID:   normalizeID(raw.GroupID),
+		Type: base.ChatTypeGroup,
+		Name: raw.GroupName,
+	}
+	if chat.ID == "" {
+		chat.Type = base.ChatTypeUnknown
+	}
+
+	reqType := raw.RequestType
+	if reqType == "" {
+		reqType = raw.SubType
+	}
+
+	return base.Request{
+		Type: reqType,
+		Chat: chat,
+		User: base.User{ID: normalizeID(raw.UserID)},
+		PlatformData: map[string]any{
+			"comment": raw.Comment,
+			"flag":    raw.Flag,
+			"raw":     raw,
+		},
+	}
+}
+
+func parseSender(raw json.RawMessage) (base.User, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return base.User{}, nil
+	}
+	var sender rawSender
+	if err := json.Unmarshal(raw, &sender); err != nil {
+		return base.User{}, err
+	}
+	name := sender.Card
+	if name == "" {
+		name = sender.Remark
+	}
+	if name == "" {
+		name = sender.Nickname
+	}
+	return base.User{
+		ID:   normalizeID(sender.UserID),
+		Name: name,
+	}, nil
+}
+
+func parseSegments(raw json.RawMessage, fallback string) ([]base.Segment, string) {
+	if len(raw) == 0 || string(raw) == "null" {
+		if fallback == "" {
+			return nil, ""
+		}
+		return []base.Segment{{Type: "text", Text: fallback, Data: map[string]any{"text": fallback}}}, fallback
+	}
+
+	var textPayload string
+	if err := json.Unmarshal(raw, &textPayload); err == nil {
+		return []base.Segment{{Type: "text", Text: textPayload, Data: map[string]any{"text": textPayload}}}, textPayload
+	}
+
+	var payload []rawSegment
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		if fallback == "" {
+			return nil, ""
+		}
+		return []base.Segment{{Type: "text", Text: fallback, Data: map[string]any{"text": fallback}}}, fallback
+	}
+
+	var (
+		segments []base.Segment
+		builder  strings.Builder
+	)
+	for _, segment := range payload {
+		text := extractSegmentText(segment)
+		if text != "" {
+			builder.WriteString(text)
+		}
+		segments = append(segments, base.Segment{
+			Type: segment.Type,
+			Text: text,
+			Data: segment.Data,
+		})
+	}
+
+	fullText := builder.String()
+	if fullText == "" {
+		fullText = fallback
+	}
+	return segments, fullText
+}
+
+func extractSegmentText(segment rawSegment) string {
+	if segment.Type != "text" {
+		return ""
+	}
+	value, ok := segment.Data["text"]
+	if !ok {
+		return ""
+	}
+	switch text := value.(type) {
+	case string:
+		return text
+	default:
+		return fmt.Sprint(text)
+	}
+}
+
+func buildEventID(raw rawEnvelope, fallbackID, subType string) string {
+	if fallbackID != "" {
+		return fallbackID
+	}
+	parts := []string{"qq", raw.PostType, subType, strconv.FormatInt(raw.Time, 10)}
+	if raw.Echo != "" {
+		parts = append(parts, raw.Echo)
+	}
+	if id := normalizeID(raw.MessageID); id != "" {
+		parts = append(parts, id)
+	}
+	return strings.Join(parts, ":")
+}
+
+func eventTime(ts int64) time.Time {
+	if ts <= 0 {
+		return time.Now()
+	}
+	return time.Unix(ts, 0)
+}
+
+func normalizeID(value any) string {
+	switch id := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return id
+	case json.Number:
+		return id.String()
+	case float64:
+		if id == math.Trunc(id) {
+			return strconv.FormatInt(int64(id), 10)
+		}
+		return strconv.FormatFloat(id, 'f', -1, 64)
+	case float32:
+		f := float64(id)
+		if f == math.Trunc(f) {
+			return strconv.FormatInt(int64(f), 10)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(id)
+	case int8:
+		return strconv.FormatInt(int64(id), 10)
+	case int16:
+		return strconv.FormatInt(int64(id), 10)
+	case int32:
+		return strconv.FormatInt(int64(id), 10)
+	case int64:
+		return strconv.FormatInt(id, 10)
+	case uint:
+		return strconv.FormatUint(uint64(id), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(id), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(id), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(id), 10)
+	case uint64:
+		return strconv.FormatUint(id, 10)
+	default:
+		return fmt.Sprint(id)
+	}
+}

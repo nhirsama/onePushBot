@@ -84,7 +84,7 @@ func (w *WebSocketMessage) GetGroupMemberInfo(groupID, userID int64, noCache boo
 
 	// 3. 检查 API 状态
 	if resp.Status != "ok" {
-		log.Printf("请求 get_group_member_info API 失败, 状态: %s, 消息: %s", resp.Status, resp.RetCode)
+		log.Printf("请求 get_group_member_info API 失败, 状态: %s, RetCode: %d", resp.Status, resp.RetCode)
 		return nil, fmt.Errorf("API 调用失败: %s, retcode: %d", resp.Status, resp.RetCode)
 	}
 
