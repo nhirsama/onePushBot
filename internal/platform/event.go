@@ -19,8 +19,9 @@ type Event struct {
 	ID       string
 	Platform Platform
 	Kind     EventKind
-	SubType  string
-	Time     time.Time
+	// SubType 保留平台内细分语义，不保证跨平台同名字段表达同样含义。
+	SubType string
+	Time    time.Time
 
 	Message *Message
 	Notice  *Notice

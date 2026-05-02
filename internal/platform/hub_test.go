@@ -43,7 +43,9 @@ func TestHubForwardEvents(t *testing.T) {
 		Platform: PlatformQQ,
 		Kind:     EventKindMessage,
 		Message: &Message{
-			Chat: Chat{ID: "chat-1"},
+			ID:     "hub-1",
+			Chat:   Chat{ID: "chat-1", Type: ChatTypeGroup},
+			Sender: User{ID: "user-1"},
 		},
 	}
 	client.events <- want

@@ -26,6 +26,11 @@ type memoryBus struct {
 	bufferSize int
 	counter    atomic.Uint64
 	subs       map[string]*memorySubscription
+
+	published atomic.Uint64
+	delivered atomic.Uint64
+	dropped   atomic.Uint64
+	invalid   atomic.Uint64
 }
 
 type memorySubscription struct {
@@ -57,6 +62,11 @@ func (b *memoryBus) Publish(ctx context.Context, event Event) error {
 	default:
 	}
 
+	if err := event.Validate(); err != nil {
+		b.invalid.Add(1)
+		return err
+	}
+
 	b.mu.RLock()
 	if b.closed {
 		b.mu.RUnlock()
@@ -77,9 +87,14 @@ func (b *memoryBus) Publish(ctx context.Context, event Event) error {
 			return ctx.Err()
 		default:
 		}
-		sub.deliver(event)
+		if sub.deliver(event) {
+			b.delivered.Add(1)
+		} else {
+			b.dropped.Add(1)
+		}
 	}
 
+	b.published.Add(1)
 	return nil
 }
 
@@ -122,6 +137,20 @@ func (b *memoryBus) Close() error {
 	return nil
 }
 
+func (b *memoryBus) Stats() BusStats {
+	b.mu.RLock()
+	activeSubscriptions := len(b.subs)
+	b.mu.RUnlock()
+
+	return BusStats{
+		ActiveSubscriptions: uint64(activeSubscriptions),
+		Published:           b.published.Load(),
+		Delivered:           b.delivered.Load(),
+		Dropped:             b.dropped.Load(),
+		Invalid:             b.invalid.Load(),
+	}
+}
+
 func (s *memorySubscription) ID() string {
 	return s.id
 }
@@ -145,17 +174,19 @@ func (s *memorySubscription) close() {
 	close(s.ch)
 }
 
-func (s *memorySubscription) deliver(event Event) {
+func (s *memorySubscription) deliver(event Event) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if s.closed {
-		return
+		return false
 	}
 
 	select {
 	case s.ch <- event:
+		return true
 	default:
+		return false
 	}
 }
 
