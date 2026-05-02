@@ -23,21 +23,21 @@ func Cli() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	hub, err := newPlatformHub()
+	app, err := newApp()
 	if err != nil {
-		log.Fatalf("初始化 platform hub 失败: %v", err)
+		log.Fatalf("初始化应用失败: %v", err)
 	}
 
-	if err := hub.Start(ctx); err != nil {
-		log.Fatalf("启动 platform hub 失败: %v", err)
+	if err := app.Start(ctx); err != nil {
+		log.Fatalf("启动应用失败: %v", err)
 	}
 
 	<-ctx.Done()
 
 	closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := hub.Close(closeCtx); err != nil {
-		log.Printf("关闭 platform hub 失败: %v", err)
+	if err := app.Close(closeCtx); err != nil {
+		log.Printf("关闭应用失败: %v", err)
 	}
 
 	config.SaveConfig()
