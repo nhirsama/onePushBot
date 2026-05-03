@@ -19,6 +19,7 @@ type Hub interface {
 type hub struct {
 	bus      Bus
 	registry Registry
+	log      Logger
 
 	mu      sync.Mutex
 	started bool
@@ -27,15 +28,37 @@ type hub struct {
 	wg      sync.WaitGroup
 }
 
+// HubOption 用于调整 Hub 运行时依赖。
+type HubOption func(*hub)
+
+// WithHubLogger 注入 Hub 内部日志输出。
+func WithHubLogger(logger Logger) HubOption {
+	return func(h *hub) {
+		if logger != nil {
+			h.log = logger
+		}
+	}
+}
+
 // NewHub 创建一个默认使用内存总线的平台 Hub。
 func NewHub(bus Bus) Hub {
+	return NewHubWithOptions(bus)
+}
+
+// NewHubWithOptions 创建平台 Hub，并允许 cmd 注入运行时依赖。
+func NewHubWithOptions(bus Bus, opts ...HubOption) Hub {
 	if bus == nil {
 		bus = NewMemoryBus()
 	}
-	return &hub{
+	h := &hub{
 		bus:      bus,
 		registry: NewRegistry(),
+		log:      NewDiscardLogger(),
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 func (h *hub) Register(client Client) error {
@@ -152,7 +175,14 @@ func (h *hub) forward(ctx context.Context, client Client) {
 			if !ok {
 				return
 			}
-			_ = h.bus.Publish(ctx, event)
+			if err := h.bus.Publish(ctx, event); err != nil {
+				h.log.Warn("平台事件发布到总线失败",
+					"platform", client.Platform(),
+					"event_id", event.ID,
+					"kind", event.Kind,
+					"err", err,
+				)
+			}
 		}
 	}
 }

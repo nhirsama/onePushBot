@@ -276,7 +276,9 @@ func (c *client) handleMessageReceive(ctx context.Context, event *larkim.P2Messa
 		},
 		Sender:       sender,
 		Text:         text,
+		RawText:      text,
 		Time:         timestamp,
+		DetailType:   subType,
 		PlatformData: event,
 	}
 
@@ -308,6 +310,8 @@ func (c *client) handleMessageRecalled(ctx context.Context, event *larkim.P2Mess
 				ID:   derefString(event.Event.ChatId),
 				Type: base.ChatTypeGroup,
 			},
+			MessageID:    derefString(event.Event.MessageId),
+			DetailType:   "message_recalled",
 			PlatformData: event,
 		},
 		Raw: event,
@@ -333,6 +337,8 @@ func (c *client) handleMessageRead(ctx context.Context, event *larkim.P2MessageR
 		Notice: &base.Notice{
 			Type:         "message_read",
 			User:         base.User{ID: extractReaderID(event.Event.Reader)},
+			MessageID:    messageID,
+			DetailType:   "message_read",
 			PlatformData: event,
 		},
 		Raw: event,

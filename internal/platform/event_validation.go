@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// Validate 检查事件是否满足公共事件契约。
+// Validate 检查事件是否满足业务事件契约。
 //
-// 约束只覆盖路由层依赖的稳定结构，不强制统一各平台的业务语义。
+// 约束只覆盖业务总线依赖的稳定结构，不强制统一各平台的业务语义。
 // 例如 SubType 只保证“平台内稳定”，不承诺跨平台同义。
 func (e Event) Validate() error {
 	if e.Platform == "" {
@@ -50,11 +50,6 @@ func (e Event) Validate() error {
 			return fmt.Errorf("%w: request payload is required for request event", ErrEventInvalid)
 		}
 		return validateRequest(e.Request)
-	case EventKindSystem, EventKindRaw:
-		if payloads > 0 {
-			return fmt.Errorf("%w: %s event should not carry message/notice/request payload", ErrEventInvalid, e.Kind)
-		}
-		return nil
 	default:
 		return fmt.Errorf("%w: unsupported event kind %q", ErrEventInvalid, e.Kind)
 	}
@@ -79,9 +74,6 @@ func validateMessage(message *Message) error {
 	}
 	if message.Chat.Type == "" {
 		return fmt.Errorf("%w: message.chat.type is required", ErrEventInvalid)
-	}
-	if strings.TrimSpace(message.Sender.ID) == "" {
-		return fmt.Errorf("%w: message.sender.id is required", ErrEventInvalid)
 	}
 	return nil
 }
@@ -118,9 +110,10 @@ func (e Event) IsValid() bool {
 func ContractNotes() []string {
 	return []string{
 		"Event.ID, Event.Platform, Event.Kind are always required.",
-		"Message events require Message.ID, Message.Chat.ID, Message.Chat.Type, Message.Sender.ID.",
+		"Message events require Message.ID, Message.Chat.ID, Message.Chat.Type.",
 		"Notice events require Notice.Type.",
 		"Request events require Request.Type and Request.User.ID.",
+		"Protocol lifecycle, heartbeat, and API echo responses are handled by platform drivers and are not published to the business bus.",
 		"SubType is platform-specific metadata and is not guaranteed to be cross-platform compatible.",
 		"PlatformData and Raw preserve platform-specific details for upper layers that need them.",
 	}

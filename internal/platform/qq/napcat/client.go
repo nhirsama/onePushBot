@@ -367,6 +367,9 @@ func (c *client) readLoop(ctx context.Context, conn *websocket.Conn) error {
 		if c.dispatchResponse(envelope) {
 			continue
 		}
+		if c.handleProtocolEvent(envelope) {
+			continue
+		}
 
 		event, ok, err := mapEnvelopeToEvent(envelope, c.cfg.SelfID)
 		if err != nil {
@@ -377,16 +380,22 @@ func (c *client) readLoop(ctx context.Context, conn *websocket.Conn) error {
 			continue
 		}
 
-		if event.Kind == base.EventKindSystem && strings.HasPrefix(event.SubType, "heartbeat") {
-			c.lastHeartbeat.Store(c.now().UnixNano())
-		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case c.eventCh <- event:
 		}
 	}
+}
+
+func (c *client) handleProtocolEvent(envelope rawEnvelope) bool {
+	if envelope.PostType != "meta_event" {
+		return false
+	}
+	if envelope.MetaEventType == "heartbeat" {
+		c.lastHeartbeat.Store(c.now().UnixNano())
+	}
+	return true
 }
 
 func (c *client) dispatchResponse(envelope rawEnvelope) bool {

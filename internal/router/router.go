@@ -13,12 +13,7 @@ import (
 type topic string
 
 const (
-	topicAll     topic = "all"
-	topicMessage topic = "kind:message"
-	topicNotice  topic = "kind:notice"
-	topicRequest topic = "kind:request"
-	topicSystem  topic = "kind:system"
-	topicRaw     topic = "kind:raw"
+	topicAll topic = "all"
 )
 
 type broker interface {
@@ -270,39 +265,101 @@ func (r *router) Stats() Stats {
 }
 
 func topicsForFilter(filter base.EventFilter) []topic {
-	if filter.Kind == "" {
+	if filter.SubType != "" {
+		if filter.Platform != "" && filter.Kind != "" {
+			return []topic{subTypeTopic(filter.Platform, filter.Kind, filter.SubType)}
+		}
+		if filter.Kind != "" {
+			return []topic{kindSubTypeTopic(filter.Kind, filter.SubType)}
+		}
 		return []topic{topicAll}
 	}
 
-	switch filter.Kind {
-	case base.EventKindMessage:
-		return []topic{topicMessage}
-	case base.EventKindNotice:
-		return []topic{topicNotice}
-	case base.EventKindRequest:
-		return []topic{topicRequest}
-	case base.EventKindSystem:
-		return []topic{topicSystem}
-	case base.EventKindRaw:
-		return []topic{topicRaw}
-	default:
+	if filter.ChatType != "" {
+		if filter.Platform != "" && filter.Kind != "" {
+			return []topic{chatTypeTopic(filter.Platform, filter.Kind, filter.ChatType)}
+		}
+		if filter.Kind != "" {
+			return []topic{kindChatTypeTopic(filter.Kind, filter.ChatType)}
+		}
 		return []topic{topicAll}
 	}
+
+	if filter.Platform != "" && filter.Kind != "" {
+		return []topic{platformKindTopic(filter.Platform, filter.Kind)}
+	}
+	if filter.Platform != "" {
+		return []topic{platformTopic(filter.Platform)}
+	}
+	if filter.Kind != "" {
+		return []topic{kindTopic(filter.Kind)}
+	}
+	return []topic{topicAll}
 }
 
 func topicsForEvent(event base.Event) []topic {
 	topics := []topic{topicAll}
-	switch event.Kind {
-	case base.EventKindMessage:
-		topics = append(topics, topicMessage)
-	case base.EventKindNotice:
-		topics = append(topics, topicNotice)
-	case base.EventKindRequest:
-		topics = append(topics, topicRequest)
-	case base.EventKindSystem:
-		topics = append(topics, topicSystem)
-	case base.EventKindRaw:
-		topics = append(topics, topicRaw)
+	if event.Platform != "" {
+		topics = append(topics, platformTopic(event.Platform))
+	}
+	if event.Kind != "" {
+		topics = append(topics, kindTopic(event.Kind))
+	}
+	if event.Platform != "" && event.Kind != "" {
+		topics = append(topics, platformKindTopic(event.Platform, event.Kind))
+	}
+	if chatType := eventChatType(event); chatType != "" {
+		topics = append(topics, kindChatTypeTopic(event.Kind, chatType))
+		if event.Platform != "" && event.Kind != "" {
+			topics = append(topics, chatTypeTopic(event.Platform, event.Kind, chatType))
+		}
+	}
+	if event.SubType != "" {
+		topics = append(topics, kindSubTypeTopic(event.Kind, event.SubType))
+		if event.Platform != "" && event.Kind != "" {
+			topics = append(topics, subTypeTopic(event.Platform, event.Kind, event.SubType))
+		}
 	}
 	return topics
+}
+
+func platformTopic(platform base.Platform) topic {
+	return topic("platform:" + string(platform))
+}
+
+func kindTopic(kind base.EventKind) topic {
+	return topic("kind:" + string(kind))
+}
+
+func platformKindTopic(platform base.Platform, kind base.EventKind) topic {
+	return topic(fmt.Sprintf("platform:%s:kind:%s", platform, kind))
+}
+
+func kindChatTypeTopic(kind base.EventKind, chatType base.ChatType) topic {
+	return topic(fmt.Sprintf("kind:%s:chat:%s", kind, chatType))
+}
+
+func chatTypeTopic(platform base.Platform, kind base.EventKind, chatType base.ChatType) topic {
+	return topic(fmt.Sprintf("platform:%s:kind:%s:chat:%s", platform, kind, chatType))
+}
+
+func kindSubTypeTopic(kind base.EventKind, subType string) topic {
+	return topic(fmt.Sprintf("kind:%s:sub:%s", kind, subType))
+}
+
+func subTypeTopic(platform base.Platform, kind base.EventKind, subType string) topic {
+	return topic(fmt.Sprintf("platform:%s:kind:%s:sub:%s", platform, kind, subType))
+}
+
+func eventChatType(event base.Event) base.ChatType {
+	switch {
+	case event.Message != nil:
+		return event.Message.Chat.Type
+	case event.Notice != nil:
+		return event.Notice.Chat.Type
+	case event.Request != nil:
+		return event.Request.Chat.Type
+	default:
+		return ""
+	}
 }

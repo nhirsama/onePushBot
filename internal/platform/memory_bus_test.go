@@ -136,9 +136,8 @@ func TestMemoryBusRejectInvalidEvent(t *testing.T) {
 		Platform: PlatformQQ,
 		Kind:     EventKindMessage,
 		Message: &Message{
-			ID:     "broken",
-			Chat:   Chat{ID: "chat-1", Type: ChatTypeGroup},
-			Sender: User{},
+			ID:   "broken",
+			Chat: Chat{ID: "chat-1"},
 		},
 	})
 	if err == nil {

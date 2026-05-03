@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -28,10 +29,17 @@ func newLogger() base.Logger {
 	}
 
 	return &platformLogger{
-		logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		logger: slog.New(slog.NewTextHandler(logWriter(), &slog.HandlerOptions{
 			Level: level,
 		})),
 	}
+}
+
+func logWriter() io.Writer {
+	if logBuffer == nil {
+		return os.Stdout
+	}
+	return io.MultiWriter(os.Stdout, logBuffer)
 }
 
 func (l *platformLogger) Debug(msg string, args ...any) {

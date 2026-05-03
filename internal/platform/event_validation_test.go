@@ -19,14 +19,13 @@ func TestEventValidateMessageContract(t *testing.T) {
 		t.Fatalf("合法消息事件校验失败: %v", err)
 	}
 
-	invalid := valid
-	invalid.Message = &Message{
-		ID:     "msg-1",
-		Chat:   Chat{ID: "chat-1", Type: ChatTypeGroup},
-		Sender: User{},
+	noSender := valid
+	noSender.Message = &Message{
+		ID:   "msg-1",
+		Chat: Chat{ID: "chat-1", Type: ChatTypeChannel},
 	}
-	if err := invalid.Validate(); err == nil {
-		t.Fatal("缺少 sender.id 的消息事件应校验失败")
+	if err := noSender.Validate(); err != nil {
+		t.Fatalf("平台无法提供发送者时消息事件仍应合法: %v", err)
 	}
 }
 
@@ -64,9 +63,9 @@ func TestEventValidateNoticeAndRequestContract(t *testing.T) {
 
 func TestEventValidateRejectsMismatchedPayload(t *testing.T) {
 	event := Event{
-		ID:       "system-1",
+		ID:       "notice-1",
 		Platform: PlatformTelegramBot,
-		Kind:     EventKindSystem,
+		Kind:     EventKindNotice,
 		Message: &Message{
 			ID:     "msg-1",
 			Chat:   Chat{ID: "chat-1", Type: ChatTypePrivate},
@@ -74,7 +73,7 @@ func TestEventValidateRejectsMismatchedPayload(t *testing.T) {
 		},
 	}
 	if err := event.Validate(); err == nil {
-		t.Fatal("system 事件携带 message payload 应校验失败")
+		t.Fatal("notice 事件携带 message payload 且缺少 notice payload 应校验失败")
 	}
 }
 

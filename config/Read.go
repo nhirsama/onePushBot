@@ -1,53 +1,30 @@
 package config
 
-import (
-	"log"
-	"net/url"
+type legacyAuth interface {
+	Authenticate(message []byte) (string, bool)
+}
 
-	"github.com/nhirsama/onePushBot/pkg/auth"
-	"github.com/nhirsama/onePushBot/pkg/infoEntropy"
-	"github.com/spf13/viper"
-)
+type legacyEntropyDB interface {
+	UpdateUser(userID int64, text string)
+	Save()
+}
+
+type noopAuth struct{}
+
+func (noopAuth) Authenticate([]byte) (string, bool) {
+	return "", false
+}
+
+type noopEntropyDB struct{}
+
+func (noopEntropyDB) UpdateUser(int64, string) {}
+
+func (noopEntropyDB) Save() {}
 
 var AutoSetMsgEmojiLikeSet map[string][]int
 var SelfId int64
 var ApiKey string
 
 var WebSocketUrl string
-var Auth *auth.Auth
-var DB *infoEntropy.EntropyDB
-
-func ReadConfig() {
-	webSocketUrl := url.URL{Scheme: "wss", Host: viper.GetString("apiUrl"), Path: "/ws", RawQuery: "access_token=" + viper.GetString("token")}
-	WebSocketUrl = webSocketUrl.String()
-	err := viper.UnmarshalKey("AutoSetMsgEmojiLikeSet", &AutoSetMsgEmojiLikeSet)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = viper.UnmarshalKey("selfId", &SelfId)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = viper.UnmarshalKey("apiKey", &ApiKey)
-	if err != nil {
-		log.Println(err)
-	}
-
-	Auth = auth.NewAuth()
-
-	var pubKey string
-	err = viper.UnmarshalKey("pubKey", &pubKey)
-	if err != nil {
-		log.Println(err)
-	}
-	Auth.AddPublicKey(pubKey)
-
-	DB = infoEntropy.LoadDB()
-}
-func SaveConfig() {
-	log.Println("正在保存配置")
-	viper.WriteConfig()
-	DB.Save()
-}
+var Auth legacyAuth = noopAuth{}
+var DB legacyEntropyDB = noopEntropyDB{}

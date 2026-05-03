@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -62,6 +61,7 @@ func (a *app) Start(ctx context.Context) error {
 			}
 		}(server)
 	}
+	a.notifyStarted(ctx)
 	return nil
 }
 
@@ -100,12 +100,9 @@ func newHTTPServers(hub base.Hub) []*http.Server {
 	}
 }
 
-// registerRoutes 是后续业务路由注入点，目前只校验平台已完成注册。
+// registerRoutes 是后续业务路由注入点；无平台配置时保持空路由启动。
 func registerRoutes(rt router.Router, hub base.Hub) error {
 	_ = hub
 	_ = rt
-	if len(hub.All()) == 0 {
-		return fmt.Errorf("至少需要注册一个平台客户端")
-	}
 	return nil
 }

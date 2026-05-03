@@ -56,12 +56,111 @@ go run ./
 
 ## 文档
 
-### bus 消息总线接口
+### 事件订阅字段
 
-|    类型     |      接口字段      |
-|:---------:|:--------------:|
-|   群聊消息    |  groupMessage  |
-|   私聊信息    | privateMessage |
-|    艾特我    |      atMe      |
-| 来自QQ的通知信息 |     notice     |
-|   拍一拍通知   |      poke      |
+业务路由通过 `platform.EventFilter` 订阅总线事件。字段为空时表示不限制该条件。
+
+| 字段 | 类型 | 格式 / 取值 | 说明 |
+|:--|:--|:--|:--|
+| `Platform` | `platform.Platform` | `qq`、`telegram_user`、`telegram_bot`、`feishu` | 来源平台。 |
+| `Kind` | `platform.EventKind` | `message`、`notice`、`request` | 事件大类。 |
+| `SubType` | `string` | 平台内事件子类型 | 例如 QQ `group`、`private`、`poke`、`friend`、`group`，Telegram `group_message`、`private_message`、`channel_post`。 |
+| `ChatType` | `platform.ChatType` | `private`、`group`、`channel`、`unknown` | 会话类型。 |
+| `ChatID` | `string` | 平台原始 ID 的字符串形式 | 群号、用户会话 ID、频道 ID、飞书 chat_id 等。 |
+| `UserID` | `string` | 平台原始 ID 的字符串形式 | 消息发送者、通知触发用户、请求发起用户。 |
+
+常用订阅：
+
+| 需求 | 订阅条件 |
+|:--|:--|
+| 所有群聊消息 | `EventFilter{Kind: EventKindMessage, ChatType: ChatTypeGroup}` |
+| 所有私聊消息 | `EventFilter{Kind: EventKindMessage, ChatType: ChatTypePrivate}` |
+| 指定 QQ 群消息 | `EventFilter{Platform: PlatformQQ, Kind: EventKindMessage, ChatType: ChatTypeGroup, ChatID: "123456"}` |
+| QQ 拍一拍 | `EventFilter{Platform: PlatformQQ, Kind: EventKindNotice, SubType: "poke"}` |
+| QQ 好友/群请求 | `EventFilter{Platform: PlatformQQ, Kind: EventKindRequest}` |
+| 飞书消息 | `EventFilter{Platform: PlatformFeishu, Kind: EventKindMessage}` |
+| Telegram 用户态频道消息 | `EventFilter{Platform: PlatformTelegramUser, Kind: EventKindMessage, ChatType: ChatTypeChannel}` |
+
+### 事件结构
+
+订阅命中后，处理器收到 `platform.Event`。
+
+| 字段 | 类型 | 说明 |
+|:--|:--|:--|
+| `ID` | `string` | 事件 ID。消息事件通常等于消息 ID；通知/请求事件由平台字段组合生成。 |
+| `Platform` | `platform.Platform` | 事件来源平台。 |
+| `Kind` | `platform.EventKind` | `message`、`notice`、`request`。 |
+| `SubType` | `string` | 平台内子类型，用于进一步区分同一大类事件。 |
+| `Time` | `time.Time` | 事件发生时间。平台未提供时使用接收时间。 |
+| `SelfID` | `string` | 收到该事件的平台账号 ID。平台无法提供时为空。 |
+| `Message` | `*platform.Message` | `Kind == message` 时非空。 |
+| `Notice` | `*platform.Notice` | `Kind == notice` 时非空。 |
+| `Request` | `*platform.Request` | `Kind == request` 时非空。 |
+| `Raw` | `any` | 平台原始事件对象，平台专属逻辑兜底使用。 |
+
+### 消息事件
+
+`Event.Kind == EventKindMessage` 时读取 `Event.Message`。
+
+| 字段 | 类型 | 说明 |
+|:--|:--|:--|
+| `ID` | `string` | 消息 ID。 |
+| `Chat` | `platform.Chat` | 会话信息。 |
+| `Sender` | `platform.User` | 发送者。 |
+| `Text` | `string` | 提取后的文本内容。非文本消息可能为空。 |
+| `RawText` | `string` | 平台原始文本。QQ 对应 `raw_message`。 |
+| `Segments` | `[]platform.Segment` | 消息段列表。QQ 文本、at、图片等会保留在这里。 |
+| `Time` | `time.Time` | 消息时间。 |
+| `Target` | `platform.User` | 目标用户。仅部分平台/事件提供。 |
+| `Font` | `int` | QQ 字体字段，其他平台通常为 `0`。 |
+| `SentBySelf` | `bool` | 是否为当前账号自己发出的消息。QQ `message_sent` 为 `true`。 |
+| `DetailType` | `string` | 平台消息细分类型。QQ 通常是 `normal`、`friend` 等；飞书通常是 `text`、`image` 等。 |
+| `Anonymous` | `any` | QQ 匿名群消息信息。没有则为空。 |
+| `PlatformData` | `any` | 平台消息原始对象。 |
+
+### 通知事件
+
+`Event.Kind == EventKindNotice` 时读取 `Event.Notice`。
+
+| 字段 | 类型 | 说明 |
+|:--|:--|:--|
+| `Type` | `string` | 通知类型。QQ 例如 `group_upload`、`group_admin`、`group_decrease`、`group_increase`、`group_ban`、`friend_add`、`group_recall`、`friend_recall`、`poke`。 |
+| `Chat` | `platform.Chat` | 关联会话。没有会话信息时字段为空。 |
+| `User` | `platform.User` | 通知触发用户。 |
+| `Target` | `platform.User` | 被操作目标用户。 |
+| `Operator` | `platform.User` | 操作者。QQ 管理、禁言、文件等通知可能提供。 |
+| `MessageID` | `string` | 关联消息 ID。撤回、已读等通知可能提供。 |
+| `FileID` | `string` | 文件 ID。文件上传通知可能提供。 |
+| `FileName` | `string` | 文件名。文件上传通知可能提供。 |
+| `FileSize` | `int64` | 文件大小，单位字节。 |
+| `Duration` | `time.Duration` | 持续时间。QQ 禁言通知会使用该字段。 |
+| `DetailType` | `string` | 平台通知细分类型。QQ `notify.poke` 中 `Type` 为 `poke`，`DetailType` 为 `notify`。 |
+| `PlatformData` | `any` | 平台通知原始对象。 |
+
+### 请求事件
+
+`Event.Kind == EventKindRequest` 时读取 `Event.Request`。
+
+| 字段 | 类型 | 说明 |
+|:--|:--|:--|
+| `Type` | `string` | 请求类型。QQ 常见为 `friend`、`group`。 |
+| `Chat` | `platform.Chat` | 关联群聊。好友请求通常为空。 |
+| `User` | `platform.User` | 请求发起用户。 |
+| `Comment` | `string` | 验证信息。 |
+| `Flag` | `string` | 平台处理请求需要用到的标识。 |
+| `DetailType` | `string` | 请求子类型。QQ 群请求常见为 `add`、`invite`。 |
+| `PlatformData` | `any` | 平台请求原始对象。 |
+
+### 公共子结构
+
+| 类型 | 字段 | 说明 |
+|:--|:--|:--|
+| `Chat` | `ID string` | 会话 ID。 |
+| `Chat` | `Type ChatType` | `private`、`group`、`channel`、`unknown`。 |
+| `Chat` | `Name string` | 群名、频道名等。平台未提供时为空。 |
+| `User` | `ID string` | 用户 ID。 |
+| `User` | `Name string` | 优先选择出的显示名。 |
+| `User` | `Nickname/Card/Remark/Role/Title/Level string` | 平台能提供时填充；QQ sender 中常见。 |
+| `Segment` | `Type string` | 消息段类型，例如 `text`、`at`、`image`。 |
+| `Segment` | `Text string` | 可直接拼接的文本。非文本段可能为空。 |
+| `Segment` | `Data any` | 平台消息段原始数据。 |

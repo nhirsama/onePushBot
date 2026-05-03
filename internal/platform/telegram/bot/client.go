@@ -249,6 +249,7 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 			Kind:     base.EventKindMessage,
 			SubType:  subType,
 			Time:     msg.Time(),
+			SelfID:   c.selfID(),
 			Message: &base.Message{
 				ID: strconv.Itoa(msg.MessageID),
 				Chat: base.Chat{
@@ -258,7 +259,9 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 				},
 				Sender:       telegramUser(msg.From),
 				Text:         msg.Text,
+				RawText:      msg.Text,
 				Time:         msg.Time(),
+				DetailType:   subType,
 				PlatformData: *msg,
 			},
 			Raw: update,
@@ -283,6 +286,7 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 			Kind:     base.EventKindNotice,
 			SubType:  "callback_query",
 			Time:     eventTime,
+			SelfID:   c.selfID(),
 			Notice: &base.Notice{
 				Type:         "callback_query",
 				Chat:         chat,
@@ -293,6 +297,13 @@ func (c *client) publishUpdate(update tgbotapi.Update) {
 		}
 		c.nonBlockingPublish(event)
 	}
+}
+
+func (c *client) selfID() string {
+	if c == nil || c.native == nil || c.native.Self.ID == 0 {
+		return ""
+	}
+	return strconv.FormatInt(c.native.Self.ID, 10)
 }
 
 func (c *client) nonBlockingPublish(event base.Event) {

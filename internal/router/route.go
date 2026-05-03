@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -27,6 +28,47 @@ var (
 
 // MatchFunc 在 EventFilter 之后执行，用于表达平台或业务相关的细粒度匹配。
 type MatchFunc func(base.Event) bool
+
+// MatchSubTypePrefix 匹配平台子类型前缀，适合 QQ 的 message_sent 等派生事件。
+func MatchSubTypePrefix(prefix string) MatchFunc {
+	return func(event base.Event) bool {
+		return strings.HasPrefix(event.SubType, prefix)
+	}
+}
+
+// MatchMentionedUser 匹配消息段里的 at/mention 目标。
+//
+// 各平台 mention 的原始结构不同，这里只处理路由层能稳定观察到的常见字段；
+// 更复杂的平台语义应放到业务 route 的 Match 中自行判断。
+func MatchMentionedUser(userID string) MatchFunc {
+	return func(event base.Event) bool {
+		if event.Message == nil || userID == "" {
+			return false
+		}
+		for _, segment := range event.Message.Segments {
+			if segment.Type != "at" && segment.Type != "mention" {
+				continue
+			}
+			if segmentValueEquals(segment.Data, userID) {
+				return true
+			}
+		}
+		return strings.Contains(event.Message.Text, "[CQ:at,qq="+userID)
+	}
+}
+
+func segmentValueEquals(data any, want string) bool {
+	fields, ok := data.(map[string]any)
+	if !ok {
+		return false
+	}
+	for _, key := range []string{"qq", "user_id", "userId", "id", "open_id", "openId"} {
+		if fmt.Sprint(fields[key]) == want {
+			return true
+		}
+	}
+	return false
+}
 
 // Handler 处理命中路由的事件。
 type Handler interface {

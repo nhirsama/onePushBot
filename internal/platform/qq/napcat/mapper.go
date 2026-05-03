@@ -18,9 +18,10 @@ func mapEnvelopeToEvent(raw rawEnvelope, fallbackSelfID string) (base.Event, boo
 		if err != nil {
 			return base.Event{}, false, err
 		}
-		subType := raw.MessageType
+		subType := messageEventSubType(raw)
 		if raw.PostType == "message_sent" {
-			subType = "sent_" + raw.MessageType
+			subType = "sent_" + subType
+			msg.SentBySelf = true
 		}
 		return base.Event{
 			ID:       buildEventID(raw, msg.ID, subType),
@@ -28,6 +29,7 @@ func mapEnvelopeToEvent(raw rawEnvelope, fallbackSelfID string) (base.Event, boo
 			Kind:     base.EventKindMessage,
 			SubType:  subType,
 			Time:     msg.Time,
+			SelfID:   normalizeID(raw.SelfID),
 			Message:  &msg,
 			Raw:      raw,
 		}, true, nil
@@ -39,6 +41,7 @@ func mapEnvelopeToEvent(raw rawEnvelope, fallbackSelfID string) (base.Event, boo
 			Kind:     base.EventKindNotice,
 			SubType:  notice.Type,
 			Time:     eventTime(raw.Time),
+			SelfID:   normalizeID(raw.SelfID),
 			Notice:   &notice,
 			Raw:      raw,
 		}, true, nil
@@ -50,43 +53,16 @@ func mapEnvelopeToEvent(raw rawEnvelope, fallbackSelfID string) (base.Event, boo
 			Kind:     base.EventKindRequest,
 			SubType:  request.Type,
 			Time:     eventTime(raw.Time),
+			SelfID:   normalizeID(raw.SelfID),
 			Request:  &request,
 			Raw:      raw,
 		}, true, nil
 	case "meta_event":
-		subType := raw.MetaEventType
-		if raw.SubType != "" {
-			subType = raw.MetaEventType + "." + raw.SubType
-		}
-		return base.Event{
-			ID:       buildEventID(raw, "", subType),
-			Platform: base.PlatformQQ,
-			Kind:     base.EventKindSystem,
-			SubType:  subType,
-			Time:     eventTime(raw.Time),
-			Raw:      raw,
-		}, true, nil
+		return base.Event{}, false, nil
 	case "":
-		if raw.Status != "" || raw.Echo != "" {
-			return base.Event{
-				ID:       buildEventID(raw, "", "api_response"),
-				Platform: base.PlatformQQ,
-				Kind:     base.EventKindRaw,
-				SubType:  "api_response",
-				Time:     time.Now(),
-				Raw:      raw,
-			}, true, nil
-		}
 		return base.Event{}, false, nil
 	default:
-		return base.Event{
-			ID:       buildEventID(raw, "", raw.PostType),
-			Platform: base.PlatformQQ,
-			Kind:     base.EventKindRaw,
-			SubType:  raw.PostType,
-			Time:     eventTime(raw.Time),
-			Raw:      raw,
-		}, true, nil
+		return base.Event{}, false, nil
 	}
 }
 
@@ -110,6 +86,10 @@ func mapMessage(raw rawEnvelope, fallbackSelfID string) (base.Message, error) {
 	if sender.ID != "" {
 		senderID = sender.ID
 	}
+	if raw.PostType == "message_sent" && fallbackSelfID != "" {
+		senderID = fallbackSelfID
+		sender.ID = fallbackSelfID
+	}
 	if senderID == "" && fallbackSelfID != "" && raw.PostType == "message_sent" {
 		senderID = fallbackSelfID
 	}
@@ -117,10 +97,15 @@ func mapMessage(raw rawEnvelope, fallbackSelfID string) (base.Message, error) {
 	msg := base.Message{
 		ID:           normalizeID(raw.MessageID),
 		Chat:         chat,
-		Sender:       base.User{ID: senderID, Name: sender.Name},
+		Sender:       enrichUserID(sender, senderID),
 		Text:         text,
+		RawText:      raw.RawMessage,
 		Segments:     segments,
 		Time:         eventTime(raw.Time),
+		Target:       base.User{ID: normalizeID(raw.TargetID)},
+		Font:         raw.Font,
+		DetailType:   raw.SubType,
+		Anonymous:    rawAnonymous(raw.Anonymous),
 		PlatformData: raw,
 	}
 	if msg.Text == "" && raw.RawMessage != "" {
@@ -146,17 +131,30 @@ func mapNotice(raw rawEnvelope) base.Notice {
 	if noticeType == "" {
 		noticeType = raw.SubType
 	}
+	if raw.NoticeType == "notify" && raw.SubType != "" {
+		noticeType = raw.SubType
+	}
 
-	return base.Notice{
-		Type:   noticeType,
-		Chat:   chat,
-		User:   base.User{ID: normalizeID(raw.UserID)},
-		Target: base.User{ID: normalizeID(raw.TargetID)},
+	notice := base.Notice{
+		Type:       noticeType,
+		Chat:       chat,
+		User:       base.User{ID: normalizeID(raw.UserID)},
+		Target:     base.User{ID: normalizeID(raw.TargetID)},
+		Operator:   base.User{ID: normalizeID(raw.OperatorID)},
+		MessageID:  normalizeID(raw.MessageID),
+		Duration:   time.Duration(raw.Duration) * time.Second,
+		DetailType: raw.NoticeType,
 		PlatformData: map[string]any{
 			"sub_type": raw.SubType,
 			"raw":      raw,
 		},
 	}
+	if file := parseFile(raw.File); file != nil {
+		notice.FileID = file.ID
+		notice.FileName = file.Name
+		notice.FileSize = file.Size
+	}
+	return notice
 }
 
 func mapRequest(raw rawEnvelope) base.Request {
@@ -175,14 +173,49 @@ func mapRequest(raw rawEnvelope) base.Request {
 	}
 
 	return base.Request{
-		Type: reqType,
-		Chat: chat,
-		User: base.User{ID: normalizeID(raw.UserID)},
+		Type:       reqType,
+		Chat:       chat,
+		User:       base.User{ID: normalizeID(raw.UserID)},
+		Comment:    raw.Comment,
+		Flag:       raw.Flag,
+		DetailType: raw.SubType,
 		PlatformData: map[string]any{
-			"comment": raw.Comment,
-			"flag":    raw.Flag,
-			"raw":     raw,
+			"raw": raw,
 		},
+	}
+}
+
+func messageEventSubType(raw rawEnvelope) string {
+	if raw.MessageType == "" {
+		return raw.SubType
+	}
+	return raw.MessageType
+}
+
+func parseFile(raw json.RawMessage) *struct {
+	ID   string
+	Name string
+	Size int64
+} {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var file rawFile
+	if err := json.Unmarshal(raw, &file); err != nil {
+		return nil
+	}
+	id := normalizeID(file.ID)
+	if id == "" {
+		id = normalizeID(file.BusID)
+	}
+	return &struct {
+		ID   string
+		Name string
+		Size int64
+	}{
+		ID:   id,
+		Name: file.Name,
+		Size: file.Size,
 	}
 }
 
@@ -202,9 +235,31 @@ func parseSender(raw json.RawMessage) (base.User, error) {
 		name = sender.Nickname
 	}
 	return base.User{
-		ID:   normalizeID(sender.UserID),
-		Name: name,
+		ID:       normalizeID(sender.UserID),
+		Name:     name,
+		Nickname: sender.Nickname,
+		Card:     sender.Card,
+		Remark:   sender.Remark,
+		Role:     sender.Role,
+		Title:    sender.Title,
+		Level:    sender.Level,
 	}, nil
+}
+
+func enrichUserID(user base.User, id string) base.User {
+	user.ID = id
+	return user
+}
+
+func rawAnonymous(raw json.RawMessage) any {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var payload any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return string(raw)
+	}
+	return payload
 }
 
 func parseSegments(raw json.RawMessage, fallback string) ([]base.Segment, string) {

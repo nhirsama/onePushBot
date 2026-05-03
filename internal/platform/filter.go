@@ -6,6 +6,7 @@ type EventFilter struct {
 	Platform Platform
 	Kind     EventKind
 	SubType  string
+	ChatType ChatType
 	ChatID   string
 	UserID   string
 }
@@ -20,6 +21,9 @@ func (f EventFilter) Match(event Event) bool {
 	if f.SubType != "" && event.SubType != f.SubType {
 		return false
 	}
+	if f.ChatType != "" && eventChatType(event) != f.ChatType {
+		return false
+	}
 	if f.ChatID != "" && f.ChatID != eventChatID(event) {
 		return false
 	}
@@ -27,6 +31,19 @@ func (f EventFilter) Match(event Event) bool {
 		return false
 	}
 	return true
+}
+
+func eventChatType(event Event) ChatType {
+	switch {
+	case event.Message != nil:
+		return event.Message.Chat.Type
+	case event.Notice != nil:
+		return event.Notice.Chat.Type
+	case event.Request != nil:
+		return event.Request.Chat.Type
+	default:
+		return ""
+	}
 }
 
 func eventChatID(event Event) string {
