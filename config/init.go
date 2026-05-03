@@ -16,6 +16,7 @@ func init() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(configPath)
+	setDefaults()
 
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
@@ -55,4 +56,14 @@ func init() {
 
 	fmt.Printf("%+v\n", viper.AllSettings())
 	ReadConfig()
+}
+
+func setDefaults() {
+	// 平台层默认走 NapCat，保持旧配置最小可用。
+	viper.SetDefault("platform", "qq")
+	// 路由层默认缓冲只影响内部 fan-out，不改变平台总线语义。
+	viper.SetDefault("router.broker_buffer", 128)
+	// 飞书是 webhook 型平台，需要由 cmd 挂载 HTTP 入口。
+	viper.SetDefault("feishu.http_addr", ":8080")
+	viper.SetDefault("feishu.webhook_path", "/feishu/events")
 }

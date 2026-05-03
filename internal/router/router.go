@@ -55,17 +55,30 @@ func (b *pubsubBroker) Shutdown() {
 	b.ps.Shutdown()
 }
 
+// Stats 是 Router 的运行时统计快照。
 type Stats struct {
-	Received       uint64
-	Published      uint64
-	Routes         int
+	// Received 是从平台总线读到的事件数量。
+	Received uint64
+	// Published 是发布到内部 topic broker 的事件数量。
+	Published uint64
+	// Routes 是当前注册的路由数量。
+	Routes int
+	// RouteSummaries 按路由名称记录单条路由的统计快照。
 	RouteSummaries map[string]RouteStats
 }
 
+// Router 从平台总线订阅事件，并把事件分发给已注册的路由。
 type Router interface {
+	// Register 注册一条路由。路由器启动后不能再注册。
 	Register(route Route) error
+
+	// Start 启动路由器并开始订阅平台总线。
 	Start(ctx context.Context) error
+
+	// Close 停止接收新事件并等待路由 worker 退出。
 	Close(ctx context.Context) error
+
+	// Stats 返回当前统计快照。
 	Stats() Stats
 }
 
@@ -85,10 +98,16 @@ type router struct {
 	published atomic.Uint64
 }
 
+// Options 描述 Router 的构造选项。
 type Options struct {
+	// BrokerBuffer 是内部 topic 订阅通道的缓冲大小。
 	BrokerBuffer int
 }
 
+// New 创建一个 Router。
+//
+// Router 只依赖平台总线的稳定事件契约；平台专属能力应通过 route handler
+// 的依赖注入获取。
 func New(bus base.Bus, opts Options) (Router, error) {
 	if bus == nil {
 		return nil, fmt.Errorf("router bus is required")
@@ -173,6 +192,8 @@ func (r *router) forward(ctx context.Context) {
 				return
 			}
 			r.received.Add(1)
+			// The internal broker keeps route subscription fan-out local to the
+			// router, so platform.Bus only needs one upstream subscription.
 			topics := topicsForEvent(event)
 			r.broker.Pub(event, topics...)
 			r.published.Add(1)
@@ -211,6 +232,8 @@ func (r *router) Close(ctx context.Context) error {
 		r.wg.Wait()
 		for _, route := range routes {
 			if route.subCh != nil {
+				// cskr/pubsub requires Unsub to run outside the subscriber
+				// goroutine while the subscriber drains until channel close.
 				go r.broker.Unsub(route.subCh, route.topics...)
 			}
 		}

@@ -11,40 +11,64 @@ import (
 )
 
 var (
-	ErrRouterStarted     = errors.New("router already started")
-	ErrRouterClosed      = errors.New("router already closed")
-	ErrRouteExists       = errors.New("router route already registered")
-	ErrRouteInvalid      = errors.New("router route is invalid")
-	ErrRouteHandlerNil   = errors.New("router route handler is nil")
+	// ErrRouterStarted 表示路由器已经启动，不能再注册路由或重复启动。
+	ErrRouterStarted = errors.New("router already started")
+	// ErrRouterClosed 表示路由器已经关闭。
+	ErrRouterClosed = errors.New("router already closed")
+	// ErrRouteExists 表示注册了重复名称的路由。
+	ErrRouteExists = errors.New("router route already registered")
+	// ErrRouteInvalid 表示路由配置不合法。
+	ErrRouteInvalid = errors.New("router route is invalid")
+	// ErrRouteHandlerNil 表示路由没有配置处理器。
+	ErrRouteHandlerNil = errors.New("router route handler is nil")
+	// ErrRouteNameRequired 表示路由名称为空。
 	ErrRouteNameRequired = errors.New("router route name is required")
 )
 
+// MatchFunc 在 EventFilter 之后执行，用于表达平台或业务相关的细粒度匹配。
 type MatchFunc func(base.Event) bool
 
+// Handler 处理命中路由的事件。
 type Handler interface {
 	Handle(ctx context.Context, event base.Event) error
 }
 
+// HandlerFunc 允许普通函数作为 Handler 使用。
 type HandlerFunc func(ctx context.Context, event base.Event) error
 
+// Handle 调用 f(ctx, event)。
 func (f HandlerFunc) Handle(ctx context.Context, event base.Event) error {
 	return f(ctx, event)
 }
 
+// OverflowPolicy 描述路由队列满时的处理策略。
 type OverflowPolicy string
 
 const (
+	// OverflowDropNewest 在路由队列满时丢弃当前事件。
 	OverflowDropNewest OverflowPolicy = "drop_newest"
-	OverflowBlock      OverflowPolicy = "block"
+	// OverflowBlock 在路由队列满时阻塞等待空间。
+	OverflowBlock OverflowPolicy = "block"
 )
 
+// Route 描述一条事件路由。
+//
+// Filter 负责平台公共字段匹配，Match 负责补充业务或平台专属匹配。
+// Handler 在事件进入该路由的本地队列后由 worker 调用。
 type Route struct {
-	Name           string
-	Filter         base.EventFilter
-	Match          MatchFunc
-	Handler        Handler
-	Workers        int
-	QueueSize      int
+	// Name 是路由的唯一名称，用于注册去重和统计索引。
+	Name string
+	// Filter 使用平台事件的公共字段做第一层匹配。
+	Filter base.EventFilter
+	// Match 在 Filter 命中后执行，用于补充平台或业务专属条件。
+	Match MatchFunc
+	// Handler 处理进入该路由队列的事件。
+	Handler Handler
+	// Workers 是该路由并发消费事件的 worker 数量。
+	Workers int
+	// QueueSize 是该路由本地队列的缓冲大小。
+	QueueSize int
+	// OverflowPolicy 决定路由本地队列满时如何处理新事件。
 	OverflowPolicy OverflowPolicy
 }
 
@@ -76,13 +100,20 @@ func (r Route) validate() error {
 	return nil
 }
 
+// RouteStats 是单条路由的运行时统计快照。
 type RouteStats struct {
+	// Received 是内部 broker 投递到该路由订阅通道的事件数量。
 	Received uint64
-	Matched  uint64
+	// Matched 是通过 Filter 和 Match 的事件数量。
+	Matched uint64
+	// Enqueued 是成功进入该路由本地队列的事件数量。
 	Enqueued uint64
-	Dropped  uint64
-	Handled  uint64
-	Failed   uint64
+	// Dropped 是因队列溢出或关闭而没有进入本地队列的事件数量。
+	Dropped uint64
+	// Handled 是 Handler 已处理完成的事件数量。
+	Handled uint64
+	// Failed 是 Handler 返回错误的事件数量。
+	Failed uint64
 }
 
 type routeRunner struct {

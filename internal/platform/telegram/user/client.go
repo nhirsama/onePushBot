@@ -13,10 +13,12 @@ import (
 	"github.com/gotd/td/session"
 	gotdtelegram "github.com/gotd/td/telegram"
 	tgauth "github.com/gotd/td/telegram/auth"
+	"github.com/gotd/td/telegram/auth/qrlogin"
 	tgpeer "github.com/gotd/td/telegram/message/peer"
 	"github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/telegram/query/messages"
 	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	model "github.com/nhirsama/onePushBot/internal/platform/telegram"
 )
@@ -36,6 +38,13 @@ type AuthProvider interface {
 	Phone(ctx context.Context) (string, error)
 	Code(ctx context.Context, sentCode *tg.AuthSentCode) (string, error)
 	Password(ctx context.Context) (string, error)
+	QRCode(ctx context.Context, token QRLoginToken) error
+}
+
+// QRLoginToken 是扫码登录时展示给用户的登录令牌。
+type QRLoginToken struct {
+	URL       string
+	ExpiresAt time.Time
 }
 
 // Client 定义 Telegram 用户态能力。
@@ -62,8 +71,10 @@ type client struct {
 	statusMu sync.RWMutex
 	status   base.Status
 
-	native  *gotdtelegram.Client
-	storage session.Storage
+	native     *gotdtelegram.Client
+	dispatcher tg.UpdateDispatcher
+	storage    session.Storage
+	loggedIn   qrlogin.LoggedIn
 
 	eventCh chan base.Event
 
@@ -131,23 +142,26 @@ func New(cfg Config, deps Dependencies) (Client, error) {
 		}
 	}
 
+	dispatcher := tg.NewUpdateDispatcher()
+	loggedIn := qrlogin.OnLoginToken(dispatcher)
 	c := &client{
-		cfg:       cfg,
-		log:       logger,
-		auth:      deps.AuthProvider,
-		status:    base.StatusStopped,
-		storage:   storage,
-		eventCh:   make(chan base.Event, cfg.EventBuffer),
-		readyCh:   make(chan struct{}),
-		users:     make(map[int64]*tg.User),
-		chats:     make(map[int64]*tg.Chat),
-		channels:  make(map[int64]*tg.Channel),
-		peerCache: make(map[string]tg.InputPeerClass),
-		sources:   sources,
-		subs:      make(map[uint64]*messageSubscription),
+		cfg:        cfg,
+		log:        logger,
+		auth:       deps.AuthProvider,
+		status:     base.StatusStopped,
+		dispatcher: dispatcher,
+		storage:    storage,
+		loggedIn:   loggedIn,
+		eventCh:    make(chan base.Event, cfg.EventBuffer),
+		readyCh:    make(chan struct{}),
+		users:      make(map[int64]*tg.User),
+		chats:      make(map[int64]*tg.Chat),
+		channels:   make(map[int64]*tg.Channel),
+		peerCache:  make(map[string]tg.InputPeerClass),
+		sources:    sources,
+		subs:       make(map[uint64]*messageSubscription),
 	}
 
-	dispatcher := tg.NewUpdateDispatcher()
 	dispatcher.OnNewMessage(c.handleUpdateNewMessage)
 	dispatcher.OnNewChannelMessage(c.handleUpdateNewChannelMessage)
 	c.native = gotdtelegram.NewClient(cfg.APIID, cfg.APIHash, gotdtelegram.Options{
@@ -369,8 +383,44 @@ func (c *client) ensureAuthorized(ctx context.Context) error {
 		return fmt.Errorf("telegram 用户态客户端未授权，且缺少授权提供器")
 	}
 
+	if c.cfg.AuthMode == AuthModeQR {
+		if err := c.authorizeByQR(ctx); err == nil {
+			return nil
+		} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		} else {
+			c.log.Warn("Telegram 扫码登录失败，回退到验证码登录", "err", err)
+		}
+	}
+
+	return c.authorizeByCode(ctx)
+}
+
+func (c *client) authorizeByQR(ctx context.Context) error {
+	_, err := c.native.QR().Auth(ctx, c.loggedIn, func(ctx context.Context, token qrlogin.Token) error {
+		return c.auth.QRCode(ctx, QRLoginToken{
+			URL:       token.URL(),
+			ExpiresAt: token.Expires(),
+		})
+	})
+	if errors.Is(err, tgauth.ErrPasswordAuthNeeded) || tgerr.Is(err, "SESSION_PASSWORD_NEEDED") {
+		return c.authorizePassword(ctx)
+	}
+	return err
+}
+
+func (c *client) authorizeByCode(ctx context.Context) error {
 	flow := tgauth.NewFlow(authenticator{provider: c.auth}, tgauth.SendCodeOptions{})
 	return flow.Run(ctx, c.native.Auth())
+}
+
+func (c *client) authorizePassword(ctx context.Context) error {
+	password, err := c.auth.Password(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = c.native.Auth().Password(ctx, password)
+	return err
 }
 
 func (c *client) handleUpdateNewMessage(ctx context.Context, entities tg.Entities, update *tg.UpdateNewMessage) error {

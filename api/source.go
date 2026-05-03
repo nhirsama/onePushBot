@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 	_ "github.com/nhirsama/onePushBot/config"
 	"github.com/nhirsama/onePushBot/internal/domain"
-	"github.com/nhirsama/onePushBot/internal/infrastructure/Scheduler"
 )
 
 type WebSocketMessage struct {
@@ -33,7 +32,7 @@ func NewWebSocketMessage(url string) (*WebSocketMessage, error) {
 	w.heartbeat = make(chan struct{}, 1)
 	//消息总线
 	w.Bus = EventBus.New()
-	w.Scheduler, _ = Scheduler.NewScheduler()
+	w.Scheduler = noopScheduler{}
 	return &w, nil
 }
 
