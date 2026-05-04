@@ -5,10 +5,21 @@ import (
 	"strings"
 
 	"github.com/nhirsama/onePushBot/config"
+	"github.com/spf13/viper"
 )
 
 func Call(inquiry string) string {
-	client := NewClient(config.ApiKey) // 你的 Bearer Token
+	apiKey := firstNonEmpty(
+		viper.GetString("llm.api_key"),
+		viper.GetString("api_key"),
+		viper.GetString("apiKey"),
+		config.ApiKey,
+	)
+	if apiKey == "" {
+		log.Println("LLM API key 未配置")
+		return ""
+	}
+	client := NewClient(apiKey)
 
 	req := &ChatRequest{
 		Model: "glm-4.5-flash",
@@ -31,4 +42,13 @@ func Call(inquiry string) string {
 	} else {
 		return ""
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

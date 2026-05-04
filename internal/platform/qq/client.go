@@ -15,6 +15,8 @@ type Client interface {
 	Call(ctx context.Context, action string, params any) (json.RawMessage, error)
 	SendGroupText(ctx context.Context, groupID string, text string) error
 	SendPrivateText(ctx context.Context, userID string, text string) error
+	SendLike(ctx context.Context, userID string, times int) error
 	SendPoke(ctx context.Context, groupID string, userID string) error
 	SetMsgEmojiLike(ctx context.Context, messageID string, emojiID int, set bool) error
+	GetGroupMemberInfo(ctx context.Context, groupID string, userID string, noCache bool) (*base.GroupMemberInfo, error)
 }

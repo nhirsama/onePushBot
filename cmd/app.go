@@ -9,11 +9,14 @@ import (
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/platform/feishu"
 	"github.com/nhirsama/onePushBot/internal/router"
+	"github.com/nhirsama/onePushBot/pkg/modules"
+	"github.com/nhirsama/onePushBot/pkg/platform_client"
 	"github.com/spf13/viper"
 )
 
 type app struct {
 	hub     base.Hub
+	modules modules.Runtime
 	router  router.Router
 	servers []*http.Server
 }
@@ -31,15 +34,18 @@ func newApp() (*app, error) {
 	if err != nil {
 		return nil, err
 	}
+	clients := platformclient.NewSource(hub)
+	moduleRuntime := modules.NewRuntime(clients)
 
-	if err := registerRoutes(rt, hub); err != nil {
+	if err := moduleRuntime.RegisterRoutes(rt); err != nil {
 		return nil, err
 	}
 
 	return &app{
 		hub:     hub,
+		modules: moduleRuntime,
 		router:  rt,
-		servers: newHTTPServers(hub),
+		servers: newHTTPServers(hub, moduleRuntime),
 	}, nil
 }
 
@@ -61,6 +67,9 @@ func (a *app) Start(ctx context.Context) error {
 			}
 		}(server)
 	}
+	if err := a.modules.Start(ctx); err != nil {
+		return err
+	}
 	a.notifyStarted(ctx)
 	return nil
 }
@@ -79,30 +88,21 @@ func (a *app) Close(ctx context.Context) error {
 }
 
 // newHTTPServers 为 webhook 型平台补充 HTTP 入口。
-func newHTTPServers(hub base.Hub) []*http.Server {
+func newHTTPServers(hub base.Hub, moduleRuntime modules.Runtime) []*http.Server {
+	servers := make([]*http.Server, 0, 2)
+
 	client, ok := hub.Get(base.PlatformFeishu)
-	if !ok {
-		return nil
+	if ok {
+		if feishuClient, ok := client.(feishu.Client); ok {
+			mux := http.NewServeMux()
+			mux.Handle(viper.GetString("feishu.webhook_path"), feishuClient.Handler())
+			servers = append(servers, &http.Server{
+				Addr:    viper.GetString("feishu.http_addr"),
+				Handler: mux,
+			})
+		}
 	}
 
-	feishuClient, ok := client.(feishu.Client)
-	if !ok {
-		return nil
-	}
-
-	mux := http.NewServeMux()
-	mux.Handle(viper.GetString("feishu.webhook_path"), feishuClient.Handler())
-	return []*http.Server{
-		{
-			Addr:    viper.GetString("feishu.http_addr"),
-			Handler: mux,
-		},
-	}
-}
-
-// registerRoutes 是后续业务路由注入点；无平台配置时保持空路由启动。
-func registerRoutes(rt router.Router, hub base.Hub) error {
-	_ = hub
-	_ = rt
-	return nil
+	servers = append(servers, moduleRuntime.HTTPServers()...)
+	return servers
 }

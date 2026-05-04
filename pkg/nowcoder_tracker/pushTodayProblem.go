@@ -3,7 +3,7 @@ package nowcoderTracker
 import (
 	"fmt"
 
-	"github.com/nhirsama/onePushBot/pkg/nowcoderTracker/nowcoderTrackerApi"
+	"github.com/nhirsama/onePushBot/pkg/nowcoder_tracker/nowcoder_tracker_api"
 )
 
 func PushTodayProblem() (string, error) {

@@ -31,6 +31,30 @@ type User struct {
 	Level    string
 }
 
+// GroupMemberInfo describes group member details shared by platform-specific
+// clients that can query group roster data.
+type GroupMemberInfo struct {
+	GroupID         string `json:"group_id"`
+	UserID          string `json:"user_id"`
+	Nickname        string `json:"nickname"`
+	Card            string `json:"card"`
+	Sex             string `json:"sex"`
+	Age             int    `json:"age"`
+	JoinTime        int64  `json:"join_time"`
+	LastSentTime    int64  `json:"last_sent_time"`
+	Level           string `json:"level"`
+	QQLevel         int    `json:"qq_level"`
+	Role            string `json:"role"`
+	Title           string `json:"title"`
+	Area            string `json:"area"`
+	Unfriendly      bool   `json:"unfriendly"`
+	TitleExpireTime int64  `json:"title_expire_time"`
+	CardChangeable  bool   `json:"card_changeable"`
+	ShutUpTimestamp int64  `json:"shut_up_timestamp"`
+	IsRobot         bool   `json:"is_robot"`
+	QAge            string `json:"qage"`
+}
+
 // Segment 描述平台消息被拆解后的消息段。
 type Segment struct {
 	Type string

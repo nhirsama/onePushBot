@@ -63,3 +63,25 @@ type rawSegment struct {
 	Type string                 `json:"type"`
 	Data map[string]interface{} `json:"data"`
 }
+
+type rawGroupMemberInfo struct {
+	GroupID         any    `json:"group_id"`
+	UserID          any    `json:"user_id"`
+	Nickname        string `json:"nickname"`
+	Card            string `json:"card"`
+	Sex             string `json:"sex"`
+	Age             int    `json:"age"`
+	JoinTime        int64  `json:"join_time"`
+	LastSentTime    int64  `json:"last_sent_time"`
+	Level           string `json:"level"`
+	QQLevel         int    `json:"qq_level"`
+	Role            string `json:"role"`
+	Title           string `json:"title"`
+	Area            string `json:"area"`
+	Unfriendly      bool   `json:"unfriendly"`
+	TitleExpireTime int64  `json:"title_expire_time"`
+	CardChangeable  bool   `json:"card_changeable"`
+	ShutUpTimestamp int64  `json:"shut_up_timestamp"`
+	IsRobot         bool   `json:"is_robot"`
+	QAge            string `json:"qage"`
+}
