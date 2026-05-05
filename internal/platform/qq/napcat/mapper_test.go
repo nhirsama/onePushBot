@@ -195,7 +195,7 @@ func TestMapEnvelopeToEvent_RequestBusinessFields(t *testing.T) {
 func TestMapEnvelopeToEvent_DropsProtocolEvents(t *testing.T) {
 	cases := []rawEnvelope{
 		{PostType: "meta_event", MetaEventType: "heartbeat"},
-		{Echo: "call-1", Status: "ok"},
+		{Echo: "call-1"},
 		{PostType: "unknown"},
 	}
 

@@ -80,6 +80,7 @@ type Router interface {
 type router struct {
 	bus    base.Bus
 	broker broker
+	log    base.Logger
 
 	mu      sync.RWMutex
 	routes  map[string]*routeRunner
@@ -97,6 +98,8 @@ type router struct {
 type Options struct {
 	// BrokerBuffer 是内部 topic 订阅通道的缓冲大小。
 	BrokerBuffer int
+	// Logger 输出 Router 的运行时日志；为空时默认丢弃。
+	Logger base.Logger
 }
 
 // New 创建一个 Router。
@@ -107,9 +110,14 @@ func New(bus base.Bus, opts Options) (Router, error) {
 	if bus == nil {
 		return nil, fmt.Errorf("router bus is required")
 	}
+	logger := opts.Logger
+	if logger == nil {
+		logger = base.NewDiscardLogger()
+	}
 	return &router{
 		bus:    bus,
 		broker: newBroker(opts.BrokerBuffer),
+		log:    logger,
 		routes: make(map[string]*routeRunner),
 	}, nil
 }
@@ -133,7 +141,7 @@ func (r *router) Register(route Route) error {
 		return ErrRouteExists
 	}
 
-	r.routes[cfg.Name] = newRouteRunner(cfg)
+	r.routes[cfg.Name] = newRouteRunner(cfg, r.log)
 	return nil
 }
 

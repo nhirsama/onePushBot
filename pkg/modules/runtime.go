@@ -13,11 +13,16 @@ type Dependencies struct {
 	Clients platformclient.Source
 }
 
+type HTTPRegistrar interface {
+	Handle(pattern string, handler http.Handler)
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}
+
 type Module struct {
 	Name           string
 	RegisterRoutes func(router.Router, Dependencies) error
 	Start          func(context.Context, Dependencies) error
-	HTTPServers    func(Dependencies) []*http.Server
+	RegisterHTTP   func(HTTPRegistrar, Dependencies) error
 }
 
 type Runtime struct {
@@ -68,13 +73,14 @@ func (r Runtime) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r Runtime) HTTPServers() []*http.Server {
-	servers := make([]*http.Server, 0)
+func (r Runtime) RegisterHTTP(mux HTTPRegistrar) error {
 	for _, module := range r.modules {
-		if module.HTTPServers == nil {
+		if module.RegisterHTTP == nil {
 			continue
 		}
-		servers = append(servers, module.HTTPServers(r.deps)...)
+		if err := module.RegisterHTTP(mux, r.deps); err != nil {
+			return fmt.Errorf("register module %s http: %w", module.Name, err)
+		}
 	}
-	return servers
+	return nil
 }

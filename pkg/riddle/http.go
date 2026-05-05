@@ -2,6 +2,7 @@ package riddle
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -12,19 +13,18 @@ type response struct {
 	Message string `json:"message"`
 }
 
-func NewHTTPServer() *http.Server {
+func RegisterHTTP(mux interface {
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+}) error {
 	if !Enabled() {
 		return nil
 	}
-
-	mux := http.NewServeMux()
+	if mux == nil {
+		return fmt.Errorf("http mux 不能为空")
+	}
 	mux.HandleFunc("/riddle-264c8c381bf16c982a4e59b0dd4c6f7808c51a05f64c35db42cc78a2a72875bb", latest.Handle)
 	mux.HandleFunc("/riddle-84983c60f7daadc1cb8698621f802c0d9f9a3c3c295c810748fb048115c186ec", guestHandler)
-
-	return &http.Server{
-		Addr:    listenAddr(),
-		Handler: mux,
-	}
+	return nil
 }
 
 func guestHandler(w http.ResponseWriter, r *http.Request) {

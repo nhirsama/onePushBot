@@ -1,7 +1,6 @@
 package riddle
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -13,17 +12,6 @@ func Enabled() bool {
 
 func groupID() string {
 	return firstNonEmpty(viper.GetString("riddle.group_id"))
-}
-
-func listenAddr() string {
-	addr := firstNonEmpty(viper.GetString("riddle.http_addr"))
-	if addr == "" {
-		return ":12396"
-	}
-	if _, err := strconv.Atoi(addr); err == nil {
-		return ":" + addr
-	}
-	return addr
 }
 
 func firstNonEmpty(values ...string) string {

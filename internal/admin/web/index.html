@@ -169,10 +169,14 @@
                             <div><label>Verification Token</label><input id="feishuVerifyToken"
                                                                          placeholder="留空不修改"></div>
                             <div><label>Encrypt Key</label><input id="feishuEncryptKey" placeholder="留空不修改"></div>
-                            <div><label>HTTP 监听地址</label><input id="feishuHTTP" placeholder=":8080"></div>
                             <div><label>Webhook Path</label><input id="feishuPath" placeholder="/feishu/events"></div>
                             <div class="field full"><label>接收 ID 类型</label><input id="feishuReceiveIDType"
                                                                                       placeholder="chat_id"></div>
+                            <div class="field full">
+                                <div class="help">飞书事件回调会复用管理面板同一个 HTTP 服务，完整地址为 `admin.addr +
+                                    webhook_path`。
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </article>

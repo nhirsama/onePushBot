@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/nhirsama/onePushBot/config"
-	"github.com/nhirsama/onePushBot/internal/admin"
 	"github.com/spf13/viper"
 )
 
@@ -35,21 +34,12 @@ func Cli() {
 		log.Fatalf("启动程序失败: %v", err)
 	}
 
-	adminServer := admin.New(viper.GetString("admin.addr"), viper.GetString("admin.token"), runtime)
-	log.Printf("管理面板: http://%s/?token=%s", adminServer.Addr(), viper.GetString("admin.token"))
-	go func() {
-		if err := adminServer.Start(); err != nil {
-			log.Printf("管理面板退出: %v", err)
-		}
-	}()
+	log.Printf("管理面板: http://%s/?token=%s", viper.GetString("admin.addr"), viper.GetString("admin.token"))
 
 	<-ctx.Done()
 
 	closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := adminServer.Close(closeCtx); err != nil {
-		log.Printf("关闭管理面板失败: %v", err)
-	}
 	if err := runtime.Close(closeCtx); err != nil {
 		log.Printf("关闭应用失败: %v", err)
 	}

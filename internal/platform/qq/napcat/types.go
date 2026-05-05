@@ -1,6 +1,10 @@
 package napcat
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/nhirsama/onePushBot/internal/platform/qq"
+)
 
 type rawRequest struct {
 	Action string `json:"action"`
@@ -34,12 +38,28 @@ type rawEnvelope struct {
 	Duration      int64           `json:"duration"`
 	File          json.RawMessage `json:"file"`
 	Interval      int64           `json:"interval"`
-	Status        string          `json:"status"`
-	RetCode       int             `json:"retcode"`
-	Data          json.RawMessage `json:"data"`
 	Echo          string          `json:"echo"`
 	Comment       string          `json:"comment"`
 	Flag          string          `json:"flag"`
+}
+
+type rawResponseEnvelope struct {
+	Status  string          `json:"status"`
+	RetCode int             `json:"retcode"`
+	Data    json.RawMessage `json:"data"`
+	Echo    string          `json:"echo"`
+}
+
+type rawHeartbeatStatus struct {
+	Online bool `json:"online"`
+	Good   bool `json:"good"`
+}
+
+type rawHeartbeatEnvelope struct {
+	PostType      string             `json:"post_type"`
+	MetaEventType string             `json:"meta_event_type"`
+	Status        rawHeartbeatStatus `json:"status"`
+	Interval      int64              `json:"interval"`
 }
 
 type rawFile struct {
@@ -84,4 +104,62 @@ type rawGroupMemberInfo struct {
 	ShutUpTimestamp int64  `json:"shut_up_timestamp"`
 	IsRobot         bool   `json:"is_robot"`
 	QAge            string `json:"qage"`
+}
+
+type rawLoginInfo struct {
+	UserID   any    `json:"user_id"`
+	Nickname string `json:"nickname"`
+}
+
+func (m rawLoginInfo) toDomain() *qq.LoginInfo {
+	return &qq.LoginInfo{
+		UserID:   normalizeID(m.UserID),
+		Nickname: m.Nickname,
+	}
+}
+
+type rawFriendInfo struct {
+	UserID       any    `json:"user_id"`
+	Nickname     string `json:"nickname"`
+	Remark       string `json:"remark"`
+	CategoryID   int    `json:"category_id"`
+	CategoryName string `json:"category_name"`
+}
+
+func (m rawFriendInfo) toDomain() qq.FriendInfo {
+	return qq.FriendInfo{
+		UserID:       normalizeID(m.UserID),
+		Nickname:     m.Nickname,
+		Remark:       m.Remark,
+		CategoryID:   m.CategoryID,
+		CategoryName: m.CategoryName,
+	}
+}
+
+type rawGroupInfo struct {
+	GroupID        any    `json:"group_id"`
+	GroupName      string `json:"group_name"`
+	MemberCount    int    `json:"member_count"`
+	MaxMemberCount int    `json:"max_member_count"`
+}
+
+func (m rawGroupInfo) toDomain() qq.GroupInfo {
+	return qq.GroupInfo{
+		GroupID:        normalizeID(m.GroupID),
+		GroupName:      m.GroupName,
+		MemberCount:    m.MemberCount,
+		MaxMemberCount: m.MaxMemberCount,
+	}
+}
+
+type rawSendMessageResult struct {
+	MessageID  any    `json:"message_id"`
+	ResourceID string `json:"res_id"`
+}
+
+func (m rawSendMessageResult) toDomain() *qq.SendMessageResult {
+	return &qq.SendMessageResult{
+		MessageID:  normalizeID(m.MessageID),
+		ResourceID: m.ResourceID,
+	}
 }

@@ -86,6 +86,10 @@ func (s *Server) Close(ctx context.Context) error {
 }
 
 func (s *Server) routes() http.Handler {
+	return NewHandler(s.token, s.controller)
+}
+
+func NewHandler(token string, controller Controller) http.Handler {
 	mux := http.NewServeMux()
 	rootFS, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -93,11 +97,15 @@ func (s *Server) routes() http.Handler {
 	}
 	staticFS := http.FileServer(http.FS(rootFS))
 	mux.Handle("/", staticFS)
-	mux.Handle("/api/status", s.auth(http.HandlerFunc(s.handleStatus)))
-	mux.Handle("/api/logs", s.auth(http.HandlerFunc(s.handleLogs)))
-	mux.Handle("/api/config", s.auth(http.HandlerFunc(s.handleConfig)))
-	mux.Handle("/api/reload", s.auth(http.HandlerFunc(s.handleReload)))
-	mux.Handle("/api/restart", s.auth(http.HandlerFunc(s.handleRestart)))
+	server := &Server{
+		token:      token,
+		controller: controller,
+	}
+	mux.Handle("/api/status", server.auth(http.HandlerFunc(server.handleStatus)))
+	mux.Handle("/api/logs", server.auth(http.HandlerFunc(server.handleLogs)))
+	mux.Handle("/api/config", server.auth(http.HandlerFunc(server.handleConfig)))
+	mux.Handle("/api/reload", server.auth(http.HandlerFunc(server.handleReload)))
+	mux.Handle("/api/restart", server.auth(http.HandlerFunc(server.handleRestart)))
 	return mux
 }
 

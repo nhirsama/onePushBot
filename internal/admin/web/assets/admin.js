@@ -169,7 +169,6 @@ async function loadAll() {
     document.getElementById('feishuSecret').value = get(currentConfig, 'feishu.app_secret');
     document.getElementById('feishuVerifyToken').value = get(currentConfig, 'feishu.verification_token');
     document.getElementById('feishuEncryptKey').value = get(currentConfig, 'feishu.encrypt_key');
-    document.getElementById('feishuHTTP').value = get(currentConfig, 'feishu.http_addr', ':8080');
     document.getElementById('feishuPath').value = get(currentConfig, 'feishu.webhook_path', '/feishu/events');
     document.getElementById('feishuReceiveIDType').value = get(currentConfig, 'feishu.receive_id_type', 'chat_id');
     document.getElementById('rawConfig').value = JSON.stringify(currentConfig, null, 2);
@@ -225,7 +224,6 @@ async function saveConfig(restart = false) {
         app_secret: document.getElementById('feishuSecret').value,
         verification_token: document.getElementById('feishuVerifyToken').value,
         encrypt_key: document.getElementById('feishuEncryptKey').value,
-        http_addr: document.getElementById('feishuHTTP').value,
         webhook_path: document.getElementById('feishuPath').value,
         receive_id_type: document.getElementById('feishuReceiveIDType').value
     };

@@ -1,8 +1,6 @@
 package modules
 
 import (
-	"net/http"
-
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/riddle"
 )
@@ -13,12 +11,9 @@ func init() {
 		RegisterRoutes: func(rt router.Router, deps Dependencies) error {
 			return riddle.Register(rt, deps.Clients)
 		},
-		HTTPServers: func(deps Dependencies) []*http.Server {
+		RegisterHTTP: func(mux HTTPRegistrar, deps Dependencies) error {
 			_ = deps
-			if server := riddle.NewHTTPServer(); server != nil {
-				return []*http.Server{server}
-			}
-			return nil
+			return riddle.RegisterHTTP(mux)
 		},
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/nhirsama/onePushBot/internal/admin"
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/platform/feishu"
 	"github.com/nhirsama/onePushBot/internal/router"
@@ -22,14 +23,17 @@ type app struct {
 }
 
 // newApp 在 cmd 层完成依赖注入，平台 Hub 和 Router 都不依赖旧内核。
-func newApp() (*app, error) {
-	hub, err := newPlatformHub()
+func newApp(controller admin.Controller) (*app, error) {
+	logger := newLogger()
+
+	hub, err := newPlatformHub(logger)
 	if err != nil {
 		return nil, err
 	}
 
 	rt, err := router.New(hub.Bus(), router.Options{
 		BrokerBuffer: viper.GetInt("router.broker_buffer"),
+		Logger:       logger,
 	})
 	if err != nil {
 		return nil, err
@@ -41,11 +45,16 @@ func newApp() (*app, error) {
 		return nil, err
 	}
 
+	servers, err := newHTTPServers(hub, moduleRuntime, controller)
+	if err != nil {
+		return nil, err
+	}
+
 	return &app{
 		hub:     hub,
 		modules: moduleRuntime,
 		router:  rt,
-		servers: newHTTPServers(hub, moduleRuntime),
+		servers: servers,
 	}, nil
 }
 
@@ -87,22 +96,24 @@ func (a *app) Close(ctx context.Context) error {
 	return a.router.Close(ctx)
 }
 
-// newHTTPServers 为 webhook 型平台补充 HTTP 入口。
-func newHTTPServers(hub base.Hub, moduleRuntime modules.Runtime) []*http.Server {
-	servers := make([]*http.Server, 0, 2)
+// newHTTPServers 把 admin、平台 webhook 和模块 HTTP 路由统一挂到一个 HTTP 服务上。
+func newHTTPServers(hub base.Hub, moduleRuntime modules.Runtime, controller admin.Controller) ([]*http.Server, error) {
+	mux := http.NewServeMux()
+	mux.Handle("/", admin.NewHandler(viper.GetString("admin.token"), controller))
 
 	client, ok := hub.Get(base.PlatformFeishu)
 	if ok {
 		if feishuClient, ok := client.(feishu.Client); ok {
-			mux := http.NewServeMux()
 			mux.Handle(viper.GetString("feishu.webhook_path"), feishuClient.Handler())
-			servers = append(servers, &http.Server{
-				Addr:    viper.GetString("feishu.http_addr"),
-				Handler: mux,
-			})
 		}
 	}
 
-	servers = append(servers, moduleRuntime.HTTPServers()...)
-	return servers
+	if err := moduleRuntime.RegisterHTTP(mux); err != nil {
+		return nil, err
+	}
+
+	return []*http.Server{{
+		Addr:    viper.GetString("admin.addr"),
+		Handler: mux,
+	}}, nil
 }

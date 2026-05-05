@@ -174,7 +174,7 @@ func (c *client) Call(ctx context.Context, action string, params any) (json.RawM
 	}
 
 	echo := fmt.Sprintf("%d-%d", c.now().UnixNano(), c.echoCounter.Add(1))
-	replyCh := make(chan rawEnvelope, 1)
+	replyCh := make(chan rawResponseEnvelope, 1)
 	c.responseMap.Store(echo, replyCh)
 	defer c.responseMap.Delete(echo)
 
@@ -229,11 +229,10 @@ func (c *client) SendPrivateText(ctx context.Context, userID string, text string
 }
 
 func (c *client) SendLike(ctx context.Context, userID string, times int) error {
-	_, err := c.Call(ctx, "send_like", map[string]any{
+	return c.callNoResult(ctx, "send_like", map[string]any{
 		"user_id": toNapcatID(userID),
 		"times":   times,
 	})
-	return err
 }
 
 func (c *client) SendPoke(ctx context.Context, groupID string, userID string) error {
@@ -244,17 +243,15 @@ func (c *client) SendPoke(ctx context.Context, groupID string, userID string) er
 	if c.cfg.SelfID != "" {
 		params["user_id"] = toNapcatID(c.cfg.SelfID)
 	}
-	_, err := c.Call(ctx, "send_poke", params)
-	return err
+	return c.callNoResult(ctx, "send_poke", params)
 }
 
 func (c *client) SetMsgEmojiLike(ctx context.Context, messageID string, emojiID int, set bool) error {
-	_, err := c.Call(ctx, "set_msg_emoji_like", map[string]any{
+	return c.callNoResult(ctx, "set_msg_emoji_like", map[string]any{
 		"message_id": messageID,
 		"emoji_id":   emojiID,
 		"set":        set,
 	})
-	return err
 }
 
 func (c *client) GetGroupMemberInfo(ctx context.Context, groupID string, userID string, noCache bool) (*base.GroupMemberInfo, error) {
@@ -419,16 +416,16 @@ func (c *client) readLoop(ctx context.Context, conn *websocket.Conn) error {
 			return err
 		}
 
-		var envelope rawEnvelope
-		if err := json.Unmarshal(payload, &envelope); err != nil {
-			c.log.Warn("解析 NapCat 消息失败", "err", err)
+		if c.dispatchResponse(payload) {
+			continue
+		}
+		if c.handleProtocolEvent(payload) {
 			continue
 		}
 
-		if c.dispatchResponse(envelope) {
-			continue
-		}
-		if c.handleProtocolEvent(envelope) {
+		var envelope rawEnvelope
+		if err := json.Unmarshal(payload, &envelope); err != nil {
+			c.log.Warn("解析 NapCat 消息失败", "err", err)
 			continue
 		}
 
@@ -449,7 +446,11 @@ func (c *client) readLoop(ctx context.Context, conn *websocket.Conn) error {
 	}
 }
 
-func (c *client) handleProtocolEvent(envelope rawEnvelope) bool {
+func (c *client) handleProtocolEvent(payload []byte) bool {
+	var envelope rawHeartbeatEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return false
+	}
 	if envelope.PostType != "meta_event" {
 		return false
 	}
@@ -459,7 +460,11 @@ func (c *client) handleProtocolEvent(envelope rawEnvelope) bool {
 	return true
 }
 
-func (c *client) dispatchResponse(envelope rawEnvelope) bool {
+func (c *client) dispatchResponse(payload []byte) bool {
+	var envelope rawResponseEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return false
+	}
 	if envelope.Echo == "" {
 		return false
 	}
@@ -468,7 +473,7 @@ func (c *client) dispatchResponse(envelope rawEnvelope) bool {
 		return false
 	}
 
-	replyCh, ok := value.(chan rawEnvelope)
+	replyCh, ok := value.(chan rawResponseEnvelope)
 	if !ok {
 		return false
 	}

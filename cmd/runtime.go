@@ -105,7 +105,7 @@ func (r *runtimeController) startLocked(parent context.Context) error {
 	if r.app != nil {
 		return nil
 	}
-	app, err := newApp()
+	app, err := newApp(r)
 	if err != nil {
 		return err
 	}

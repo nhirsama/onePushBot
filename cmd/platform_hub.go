@@ -9,8 +9,11 @@ import (
 )
 
 // newPlatformHub 是 cmd 的平台组合入口，只负责把配置中的平台客户端注册进 Hub。
-func newPlatformHub() (base.Hub, error) {
-	hub := base.NewHubWithOptions(nil, base.WithHubLogger(newLogger()))
+func newPlatformHub(logger base.Logger) (base.Hub, error) {
+	if logger == nil {
+		logger = newLogger()
+	}
+	hub := base.NewHubWithOptions(nil, base.WithHubLogger(logger))
 
 	clients, err := newPlatformClients()
 	if err != nil {

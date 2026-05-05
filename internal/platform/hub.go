@@ -175,6 +175,7 @@ func (h *hub) forward(ctx context.Context, client Client) {
 			if !ok {
 				return
 			}
+			h.log.Info("业务事件进入总线", EventLogFields(event)...)
 			if err := h.bus.Publish(ctx, event); err != nil {
 				h.log.Warn("平台事件发布到总线失败",
 					"platform", client.Platform(),

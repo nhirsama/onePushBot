@@ -160,6 +160,7 @@ type RouteStats struct {
 
 type routeRunner struct {
 	cfg Route
+	log base.Logger
 
 	subCh  chan base.Event
 	topics []topic
@@ -175,10 +176,14 @@ type routeRunner struct {
 	failed   atomic.Uint64
 }
 
-func newRouteRunner(route Route) *routeRunner {
+func newRouteRunner(route Route, logger base.Logger) *routeRunner {
 	cfg := route.withDefaults()
+	if logger == nil {
+		logger = base.NewDiscardLogger()
+	}
 	return &routeRunner{
 		cfg:    cfg,
+		log:    logger,
 		topics: topicsForFilter(cfg.Filter),
 		inbox:  make(chan base.Event, cfg.QueueSize),
 	}
@@ -216,10 +221,23 @@ func (r *routeRunner) dispatch(ctx context.Context) {
 				continue
 			}
 			r.matched.Add(1)
+			r.log.Debug("业务事件命中路由",
+				append([]any{
+					"route", r.cfg.Name,
+				}, base.EventLogFields(event)...)...,
+			)
 			if r.enqueue(ctx, event) {
 				r.enqueued.Add(1)
 			} else {
 				r.dropped.Add(1)
+				r.log.Warn("路由队列已满，丢弃业务事件",
+					append([]any{
+						"route", r.cfg.Name,
+						"queue_size", cap(r.inbox),
+						"queue_len", len(r.inbox),
+						"overflow_policy", r.cfg.OverflowPolicy,
+					}, base.EventLogFields(event)...)...,
+				)
 			}
 		}
 	}
@@ -250,6 +268,12 @@ func (r *routeRunner) worker(ctx context.Context) {
 	for event := range r.inbox {
 		if err := r.cfg.Handler.Handle(ctx, event); err != nil {
 			r.failed.Add(1)
+			r.log.Warn("路由处理业务事件失败",
+				append([]any{
+					"route", r.cfg.Name,
+					"err", err,
+				}, base.EventLogFields(event)...)...,
+			)
 		}
 		r.handled.Add(1)
 	}
