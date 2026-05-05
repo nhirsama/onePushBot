@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>onePushBot 管理面板</title>
+    <link rel="stylesheet" href="/assets/admin.css">
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="logo">OP</div>
+            <div><strong>onePushBot</strong><span>Web 管理面板</span></div>
+        </div>
+        <nav class="nav">
+            <button class="active" id="tab-dashboard" onclick="showView('dashboard')"><span class="nav-mark"></span>总览
+            </button>
+            <button id="tab-platforms" onclick="showView('platforms')"><span class="nav-mark"></span>平台配置</button>
+            <button id="tab-logs" onclick="showView('logs')"><span class="nav-mark"></span>运行日志</button>
+        </nav>
+        <div class="side-card">
+            <b>本地安全模式</b><br>
+            管理面板默认监听本机地址。Token 会在启动时打印到控制台。
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <h1 id="pageTitle">总览</h1>
+                <p id="pageDesc">查看当前程序状态、资源占用和平台连接情况。</p>
+            </div>
+            <div class="toolbar">
+                <button class="btn ghost" onclick="loadAll()">刷新</button>
+                <button class="btn secondary" onclick="post('/api/reload')">重载配置</button>
+                <button class="btn warn" onclick="post('/api/restart')">重启程序</button>
+            </div>
+        </header>
+
+        <section class="view active" id="view-dashboard">
+            <div class="grid dashboard-grid">
+                <div class="card metric"><label>主程序</label><strong id="runtimeState">-</strong>
+                    <div class="hint">当前服务状态</div>
+                </div>
+                <div class="card metric"><label>当前内存</label><strong id="memoryAlloc">-</strong>
+                    <div class="hint">Go 运行时分配</div>
+                </div>
+                <div class="card metric"><label>CPU 使用率</label><strong id="cpuPercent">-</strong>
+                    <div class="hint">启动以来平均值</div>
+                </div>
+                <div class="card metric"><label>协程数量</label><strong id="goroutines">-</strong>
+                    <div class="hint">当前 Goroutine</div>
+                </div>
+            </div>
+            <div class="grid two-col" style="margin-top:14px;">
+                <div class="card">
+                    <h2>平台状态</h2>
+                    <p class="desc">当前已启动的平台客户端。</p>
+                    <div class="status-row" id="platformSummary"></div>
+                </div>
+                <div class="card">
+                    <h2>运行信息</h2>
+                    <div class="fact-list">
+                        <div class="fact"><b>已启用平台</b><span id="enabledPlatforms">-</span></div>
+                        <div class="fact"><b>启动时长</b><span id="uptime">-</span></div>
+                        <div class="fact"><b>系统内存</b><span id="memorySys">-</span></div>
+                        <div class="fact"><b>CPU 时间</b><span id="cpuTime">-</span></div>
+                        <div class="fact"><b>配置存储</b><span>SQLite KV</span></div>
+                    </div>
+                    <label>Router Buffer</label>
+                    <input id="routerBuffer" type="number" placeholder="128">
+                    <div class="help">修改后到“平台配置”页点击保存，重启程序后生效。</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-platforms">
+            <div class="grid">
+                <article class="card platform-card" id="card-napcat">
+                    <div class="platform-head">
+                        <div>
+                            <h3><span class="platform-icon">Q</span>NapCat / QQ</h3>
+                            <p class="desc">接入 QQ 机器人消息和发送能力。</p>
+                            <div class="status-row"><span class="pill" id="state-napcat"><span class="dot"></span>未启用</span><span
+                                    class="pill">WebSocket/API</span></div>
+                        </div>
+                        <label class="switch"><input id="enableNapCat" type="checkbox"
+                                                     onchange="toggleCard('napcat')"><span
+                                class="track"></span>启用</label>
+                    </div>
+                    <div class="platform-body">
+                        <div class="form-grid">
+                            <div class="field full"><label>NapCat WebSocket/API 地址</label><input id="napcatURL"
+                                                                                                   placeholder="ws://127.0.0.1:3001/ws">
+                                <div class="help">支持 127.0.0.1:3001 或完整 ws/http 地址。</div>
+                            </div>
+                            <div><label>Access Token</label><input id="napcatToken"
+                                                                   placeholder="留空不修改，****** 表示已配置"></div>
+                            <div><label>机器人 QQ 号 self_id</label><input id="napcatSelfID" placeholder="可留空"></div>
+                            <div><label>心跳超时秒数</label><input id="napcatHeartbeat" type="number" placeholder="90">
+                            </div>
+                            <div><label>最大重连次数</label><input id="napcatReconnect" type="number"
+                                                                   placeholder="0 表示不限"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="card platform-card" id="card-telegram">
+                    <div class="platform-head">
+                        <div>
+                            <h3><span class="platform-icon">T</span>Telegram</h3>
+                            <p class="desc">Bot 模式适合群消息采集；用户态用于个人账号能力。</p>
+                            <div class="status-row"><span class="pill" id="state-telegram"><span class="dot"></span>未启用</span><span
+                                    class="pill">Bot API / User MTProto</span></div>
+                        </div>
+                        <label class="switch"><input id="enableTelegram" type="checkbox"
+                                                     onchange="toggleCard('telegram')"><span
+                                class="track"></span>启用</label>
+                    </div>
+                    <div class="platform-body">
+                        <div class="form-grid">
+                            <div><label>启用模式</label><select id="telegramMode" onchange="toggleTelegramMode()">
+                                <option value="bot">Bot</option>
+                                <option value="user">用户态</option>
+                                <option value="both">Bot + 用户态</option>
+                            </select></div>
+                            <div><label>Bot 状态通知 chat_id</label><input id="tgBotOwner" placeholder="例如 123456789">
+                            </div>
+                            <div class="field full tg-bot"><label>Bot Token</label><input id="tgBotToken"
+                                                                                          placeholder="留空不修改，****** 表示已配置">
+                                <div class="help">群消息总结优先使用 Bot 模式。需要在 BotFather 关闭 privacy mode，并把
+                                    bot 拉进群。
+                                </div>
+                            </div>
+                            <div class="tg-user"><label>API ID</label><input id="tgUserAPIID" type="number"></div>
+                            <div class="tg-user"><label>API Hash</label><input id="tgUserAPIHash"
+                                                                               placeholder="留空不修改"></div>
+                            <div class="tg-user"><label>Session 文件路径</label><input id="tgUserSession"
+                                                                                       placeholder="./data/telegram_user.session">
+                            </div>
+                            <div class="tg-user"><label>登录方式</label><select id="tgUserAuthMode">
+                                <option value="qr">扫码登录</option>
+                                <option value="code">验证码登录</option>
+                            </select></div>
+                            <div class="field full tg-user"><label>允许来源 chat_id，逗号分隔</label><input
+                                    id="tgUserSourceChats" placeholder="-100xxxxxxxxxx,123456789"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="card platform-card" id="card-feishu">
+                    <div class="platform-head">
+                        <div>
+                            <h3><span class="platform-icon">F</span>飞书</h3>
+                            <p class="desc">通过飞书应用和事件回调接入消息。</p>
+                            <div class="status-row"><span class="pill" id="state-feishu"><span class="dot"></span>未启用</span><span
+                                    class="pill">Webhook</span></div>
+                        </div>
+                        <label class="switch"><input id="enableFeishu" type="checkbox"
+                                                     onchange="toggleCard('feishu')"><span
+                                class="track"></span>启用</label>
+                    </div>
+                    <div class="platform-body">
+                        <div class="form-grid">
+                            <div><label>App ID</label><input id="feishuAppID"></div>
+                            <div><label>App Secret</label><input id="feishuSecret"
+                                                                 placeholder="留空不修改，****** 表示已配置"></div>
+                            <div><label>Verification Token</label><input id="feishuVerifyToken"
+                                                                         placeholder="留空不修改"></div>
+                            <div><label>Encrypt Key</label><input id="feishuEncryptKey" placeholder="留空不修改"></div>
+                            <div><label>HTTP 监听地址</label><input id="feishuHTTP" placeholder=":8080"></div>
+                            <div><label>Webhook Path</label><input id="feishuPath" placeholder="/feishu/events"></div>
+                            <div class="field full"><label>接收 ID 类型</label><input id="feishuReceiveIDType"
+                                                                                      placeholder="chat_id"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="savebar">
+                    <span class="help">保存只写入配置；保存并重启会立即按新配置重连平台。</span>
+                    <div class="toolbar">
+                        <button class="btn" onclick="saveConfig()">保存</button>
+                        <button class="btn secondary" onclick="saveConfig(true)">保存并重启</button>
+                    </div>
+                </div>
+
+                <details class="card">
+                    <summary>高级：查看 / 编辑完整 JSON</summary>
+                    <textarea id="rawConfig"></textarea>
+                </details>
+            </div>
+        </section>
+
+        <section class="view" id="view-logs">
+            <div class="log-panel">
+                <div class="log-head">
+                    <div>
+                        <h2>日志控制台</h2>
+                        <p class="desc">显示最近的程序日志，适合排查平台连接和配置重启问题。</p>
+                    </div>
+                    <div class="log-tools">
+                        <select id="logLevel" onchange="renderLogs()">
+                            <option value="all">全部级别</option>
+                            <option value="info">Info</option>
+                            <option value="warn">Warn</option>
+                            <option value="error">Error</option>
+                            <option value="debug">Debug</option>
+                        </select>
+                        <input id="logSearch" placeholder="搜索日志" oninput="renderLogs()">
+                        <label class="switch"><input id="logAutoRefresh" type="checkbox" checked><span
+                                class="track"></span>自动刷新</label>
+                        <button class="btn ghost" onclick="clearLogView()">清屏</button>
+                        <button class="btn" onclick="fetchLogs(false)">刷新日志</button>
+                    </div>
+                </div>
+                <div class="console" id="logConsole">
+                    <div class="log-empty">暂无日志</div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/assets/admin.js"></script>
+</body>
+</html>
