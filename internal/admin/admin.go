@@ -2,11 +2,16 @@ package admin
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"strings"
 )
+
+//go:embed web/*
+var webFS embed.FS
 
 type Status struct {
 	Running   bool              `json:"running"`
@@ -82,7 +87,12 @@ func (s *Server) Close(ctx context.Context) error {
 
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleIndex)
+	rootFS, err := fs.Sub(webFS, "web")
+	if err != nil {
+		panic(err)
+	}
+	staticFS := http.FileServer(http.FS(rootFS))
+	mux.Handle("/", staticFS)
 	mux.Handle("/api/status", s.auth(http.HandlerFunc(s.handleStatus)))
 	mux.Handle("/api/logs", s.auth(http.HandlerFunc(s.handleLogs)))
 	mux.Handle("/api/config", s.auth(http.HandlerFunc(s.handleConfig)))
@@ -107,15 +117,6 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(indexHTML))
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
