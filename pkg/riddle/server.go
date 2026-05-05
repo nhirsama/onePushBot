@@ -18,7 +18,7 @@ func Register(rt router.Router, clients platformclient.Source) error {
 
 	groupID := groupID()
 	if groupID == "" {
-		log.Println("riddle 已启用，但未配置 riddle.group_id/riddleConfigGroupId，仅启动 HTTP 查询接口")
+		log.Println("riddle 已启用，但未配置 riddle.group_id，仅启动 HTTP 查询接口")
 		return nil
 	}
 

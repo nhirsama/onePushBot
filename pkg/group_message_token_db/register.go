@@ -13,7 +13,7 @@ import (
 )
 
 func Enabled() bool {
-	return viper.GetBool("group_message_token_DB.Enable") || viper.GetBool("group_message_token_DB.enable")
+	return viper.GetBool("group_message_token_db.enabled")
 }
 
 func Register(rt router.Router) error {
@@ -23,7 +23,7 @@ func Register(rt router.Router) error {
 
 	db := infoEntropy.LoadDB()
 	if db == nil {
-		log.Println("group_message_token_DB 初始化失败，跳过")
+		log.Println("group_message_token_db 初始化失败，跳过")
 		return nil
 	}
 

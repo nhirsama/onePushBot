@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/nhirsama/onePushBot/config"
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/auth"
@@ -39,8 +38,8 @@ func Register(rt router.Router, clients platformclient.Source) error {
 			if !ok {
 				return nil
 			}
-			if !llmAPIKeyConfigured() {
-				log.Println("sudo 已启用，但未配置 llm.api_key/apiKey，跳过回复")
+			if !llmAPITokenConfigured() {
+				log.Println("sudo 已启用，但未配置 llm.api_token，跳过回复")
 				return nil
 			}
 			client, ok := clientFromEvent(clients, event)
@@ -60,7 +59,7 @@ func Register(rt router.Router, clients platformclient.Source) error {
 func newAuthenticator() authenticator {
 	keys := publicKeys()
 	if len(keys) == 0 {
-		return config.Auth
+		return auth.NewAuth()
 	}
 
 	authenticator := auth.NewAuth()
@@ -72,24 +71,11 @@ func newAuthenticator() authenticator {
 
 func publicKeys() []string {
 	keys := append([]string{}, viper.GetStringSlice("sudo.public_keys")...)
-	for _, key := range []string{
-		viper.GetString("sudo.public_key"),
-		viper.GetString("auth.public_key"),
-	} {
-		if strings.TrimSpace(key) != "" {
-			keys = append(keys, key)
-		}
-	}
 	return keys
 }
 
-func llmAPIKeyConfigured() bool {
-	return firstNonEmpty(
-		viper.GetString("llm.api_key"),
-		viper.GetString("api_key"),
-		viper.GetString("apiKey"),
-		config.ApiKey,
-	) != ""
+func llmAPITokenConfigured() bool {
+	return strings.TrimSpace(viper.GetString("llm.api_token")) != ""
 }
 
 func firstNonEmpty(values ...string) string {

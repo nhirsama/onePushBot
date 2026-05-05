@@ -391,7 +391,7 @@ function showView(name) {
 }
 function activePlatforms(cfg) {
   if (Array.isArray(cfg.platforms)) return cfg.platforms;
-  return cfg.platform ? [cfg.platform] : [];
+  return [];
 }
 function hasPlatform(cfg, name) {
   const platforms = activePlatforms(cfg);
@@ -485,11 +485,11 @@ async function loadAll() {
   toggleTelegramMode();
 
   document.getElementById('routerBuffer').value = get(currentConfig, 'router.broker_buffer', 128);
-  document.getElementById('napcatURL').value = get(currentConfig, 'bot_config.api_url') || currentConfig.apiurl || '';
-  document.getElementById('napcatToken').value = get(currentConfig, 'bot_config.token') || currentConfig.token || '';
-  document.getElementById('napcatSelfID').value = get(currentConfig, 'bot_config.self_id') || currentConfig.selfid || '';
-  document.getElementById('napcatHeartbeat').value = get(currentConfig, 'bot_config.heartbeat_timeout', 90);
-  document.getElementById('napcatReconnect').value = get(currentConfig, 'bot_config.reconnect_max_attempts', 0);
+  document.getElementById('napcatURL').value = get(currentConfig, 'qq.api_url', '');
+  document.getElementById('napcatToken').value = get(currentConfig, 'qq.token', '');
+  document.getElementById('napcatSelfID').value = get(currentConfig, 'qq.self_id', '');
+  document.getElementById('napcatHeartbeat').value = get(currentConfig, 'qq.heartbeat_timeout', 90);
+  document.getElementById('napcatReconnect').value = get(currentConfig, 'qq.reconnect_max_attempts', 0);
 
   document.getElementById('tgBotToken').value = get(currentConfig, 'telegram_bot.token');
   document.getElementById('tgBotOwner').value = get(currentConfig, 'telegram_bot.owner_chat_id');
@@ -524,10 +524,9 @@ async function saveConfig(restart = false) {
   try { patch = { ...patch, ...JSON.parse(document.getElementById('rawConfig').value || '{}') }; } catch {}
   const platforms = selectedPlatforms();
   patch.platforms = platforms;
-  patch.platform = platforms.length === 1 ? platforms[0] : '';
   patch.router = { ...(patch.router || {}), broker_buffer: Number(document.getElementById('routerBuffer').value || 128) };
-  patch.bot_config = {
-    ...(patch.bot_config || {}),
+  patch.qq = {
+    ...(patch.qq || {}),
     api_url: document.getElementById('napcatURL').value,
     token: document.getElementById('napcatToken').value,
     self_id: document.getElementById('napcatSelfID').value,

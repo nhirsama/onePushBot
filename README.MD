@@ -56,6 +56,27 @@ go run ./
 
 ## 文档
 
+### 配置约定
+
+项目只保留一套配置键名，不再兼容历史别名。运行时配置保存在 SQLite `settings` 表中，管理面板也只读写这些规范键。
+
+常用配置分组：
+
+| 分组                          | 说明                                                  |
+|:----------------------------|:----------------------------------------------------|
+| `platforms`                 | 已启用平台列表，例如 `["qq","telegram_bot"]`                  |
+| `qq.*`                      | NapCat / QQ 平台配置                                    |
+| `telegram_bot.*`            | Telegram Bot 配置                                     |
+| `telegram_user.*`           | Telegram 用户态配置                                      |
+| `feishu.*`                  | 飞书平台配置                                              |
+| `llm.*`                     | 大模型配置，例如 `llm.api_token`、`llm.model`、`llm.base_url` |
+| `reply.*`                   | `reply` 模块配置，开关使用 `reply.enabled`                   |
+| `sudo.*`                    | `sudo` 模块配置，开关使用 `sudo.enabled`                     |
+| `riddle.*`                  | `riddle` 模块配置，开关使用 `riddle.enabled`                 |
+| `auto_set_msg_emoji_like.*` | 自动表情回应模块配置                                          |
+| `group_message_token_db.*`  | 群消息分词统计模块配置                                         |
+| `nowcoder_daily.*`          | 牛客每日一题推送配置                                          |
+
 ### 事件订阅字段
 
 业务路由通过 `platform.EventFilter` 订阅总线事件。字段为空时表示不限制该条件。

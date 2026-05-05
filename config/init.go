@@ -119,8 +119,17 @@ func randomToken() string {
 func setDefaults() {
 	viper.SetDefault("admin.addr", "127.0.0.1:8090")
 	viper.SetDefault("router.broker_buffer", 128)
+	viper.SetDefault("qq.heartbeat_timeout", 90)
 	viper.SetDefault("feishu.http_addr", ":8080")
 	viper.SetDefault("feishu.webhook_path", "/feishu/events")
+	viper.SetDefault("feishu.receive_id_type", "chat_id")
+	viper.SetDefault("telegram_user.session_path", "./data/telegram_user.session")
+	viper.SetDefault("telegram_user.auth_mode", "qr")
+	viper.SetDefault("llm.base_url", "https://open.bigmodel.cn/api/paas/v4/chat/completions")
+	viper.SetDefault("llm.model", "glm-4.5-flash")
+	viper.SetDefault("riddle.http_addr", ":12396")
+	viper.SetDefault("nowcoder_daily.hour", 18)
+	viper.SetDefault("nowcoder_daily.minute", 0)
 }
 
 func resetViper() {

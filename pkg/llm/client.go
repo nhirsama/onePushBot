@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -40,16 +41,20 @@ type ChatResponse struct {
 
 // Client 表示一个可复用的客户端
 type Client struct {
-	apiKey  string
-	baseURL string
-	client  *http.Client
+	apiToken string
+	baseURL  string
+	client   *http.Client
 }
 
 // NewClient 创建一个新的智谱AI客户端
-func NewClient(apiKey string) *Client {
+func NewClient(apiToken string, baseURL string) *Client {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+	}
 	return &Client{
-		apiKey:  apiKey,
-		baseURL: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+		apiToken: apiToken,
+		baseURL:  baseURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -68,7 +73,7 @@ func (c *Client) Chat(req *ChatRequest) (*ChatResponse, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiToken)
 
 	resp, err := c.client.Do(httpReq)
 	if err != nil {

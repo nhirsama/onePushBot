@@ -1,28 +1,19 @@
 package reply
 
 import (
-	"strconv"
 	"strings"
 
-	"github.com/nhirsama/onePushBot/config"
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/spf13/viper"
 )
 
 func Enabled() bool {
-	return viper.GetBool("reply.Enable") || viper.GetBool("reply.enable")
+	return viper.GetBool("reply.enabled")
 }
 
 func configuredSelfID() string {
-	selfID := firstNonEmpty(viper.GetString("bot_config.self_id"), viper.GetString("selfId"))
-	if selfID != "" {
-		return selfID
-	}
-	if config.SelfId != 0 {
-		return strconv.FormatInt(config.SelfId, 10)
-	}
-	return ""
+	return strings.TrimSpace(viper.GetString("qq.self_id"))
 }
 
 func matchMentionedSelf() router.MatchFunc {
@@ -38,13 +29,8 @@ func matchMentionedSelf() router.MatchFunc {
 	}
 }
 
-func llmAPIKeyConfigured() bool {
-	return firstNonEmpty(
-		viper.GetString("llm.api_key"),
-		viper.GetString("api_key"),
-		viper.GetString("apiKey"),
-		config.ApiKey,
-	) != ""
+func llmAPITokenConfigured() bool {
+	return strings.TrimSpace(viper.GetString("llm.api_token")) != ""
 }
 
 func firstNonEmpty(values ...string) string {

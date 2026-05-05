@@ -29,11 +29,22 @@ func TestSQLiteSettingsKV(t *testing.T) {
 		t.Fatalf("unexpected value: %s", value)
 	}
 
+	if err := db.Delete(ctx, "telegram_bot.token"); err != nil {
+		t.Fatal(err)
+	}
+	_, ok, err = db.Get(ctx, "telegram_bot.token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected key to be deleted")
+	}
+
 	items, err := db.List(ctx, "telegram_bot.")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || items[0].Key != "telegram_bot.token" {
+	if len(items) != 0 {
 		t.Fatalf("unexpected items: %#v", items)
 	}
 }

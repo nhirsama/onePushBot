@@ -94,6 +94,11 @@ ON CONFLICT(key) DO UPDATE SET
 	return err
 }
 
+func (s *SQLite) Delete(ctx context.Context, key string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM settings WHERE key = ?`, key)
+	return err
+}
+
 func (s *SQLite) List(ctx context.Context, prefix string) ([]KV, error) {
 	query := `SELECT key, value FROM settings ORDER BY key`
 	args := []any(nil)

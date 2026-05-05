@@ -27,8 +27,8 @@ func Register(rt router.Router, clients platformclient.Source) error {
 			if event.Message == nil || strings.TrimSpace(event.Message.Text) == "" {
 				return nil
 			}
-			if !llmAPIKeyConfigured() {
-				log.Println("reply 已启用，但未配置 llm.api_key/apiKey，跳过回复")
+			if !llmAPITokenConfigured() {
+				log.Println("reply 已启用，但未配置 llm.api_token，跳过回复")
 				return nil
 			}
 			client, ok := clientFromEvent(clients, event)

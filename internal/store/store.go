@@ -12,5 +12,6 @@ type Store interface {
 	Close() error
 	Get(ctx context.Context, key string) (string, bool, error)
 	Set(ctx context.Context, key string, value string) error
+	Delete(ctx context.Context, key string) error
 	List(ctx context.Context, prefix string) ([]KV, error)
 }

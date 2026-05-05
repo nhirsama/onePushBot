@@ -4,12 +4,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nhirsama/onePushBot/config"
 	"github.com/spf13/viper"
 )
 
 func Enabled() bool {
-	return viper.GetBool("autoSetMsgEmojiLike.Enable") || viper.GetBool("autoSetMsgEmojiLike.enable")
+	return viper.GetBool("auto_set_msg_emoji_like.enabled")
 }
 
 func emojiLikesForUser(userID string) []int {
@@ -22,16 +21,7 @@ func emojiLikesForUser(userID string) []int {
 
 func emojiLikeSettings() map[string][]int {
 	result := make(map[string][]int)
-	for _, key := range []string{
-		"autoSetMsgEmojiLike.set",
-		"autoSetMsgEmojiLikeSet",
-		"auto_set_msg_emoji_like.set",
-	} {
-		mergeEmojiSettings(result, viper.GetStringMap(key))
-	}
-	for userID, emojiIDs := range config.AutoSetMsgEmojiLikeSet {
-		result[userID] = append(result[userID], emojiIDs...)
-	}
+	mergeEmojiSettings(result, viper.GetStringMap("auto_set_msg_emoji_like.set"))
 	return result
 }
 

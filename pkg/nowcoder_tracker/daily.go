@@ -3,7 +3,6 @@ package nowcoderTracker
 import (
 	"context"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ type Client interface {
 }
 
 func DailyEnabled() bool {
-	return viper.GetBool("nowcoderDaily.Enable") || viper.GetBool("nowcoderDaily.enable")
+	return viper.GetBool("nowcoder_daily.enabled")
 }
 
 func StartDaily(ctx context.Context, clients platformclient.Source) {
@@ -27,15 +26,15 @@ func StartDaily(ctx context.Context, clients platformclient.Source) {
 
 	groupIDs := dailyGroupIDs()
 	if len(groupIDs) == 0 {
-		log.Println("nowcoderDaily 已启用，但 DailyGroupList/nowcoderDaily.groups 为空，跳过")
+		log.Println("nowcoder_daily 已启用，但 nowcoder_daily.groups 为空，跳过")
 		return
 	}
 
-	hour := viper.GetInt("nowcoderDaily.hour")
-	if hour == 0 && !viper.IsSet("nowcoderDaily.hour") {
+	hour := viper.GetInt("nowcoder_daily.hour")
+	if hour == 0 && !viper.IsSet("nowcoder_daily.hour") {
 		hour = 18
 	}
-	minute := viper.GetInt("nowcoderDaily.minute")
+	minute := viper.GetInt("nowcoder_daily.minute")
 
 	go runDaily(ctx, clients, groupIDs, hour, minute)
 }
@@ -50,17 +49,14 @@ func clientFromSource(source platformclient.Source) (Client, bool) {
 func dailyGroupIDs() []string {
 	var result []string
 	seen := map[string]struct{}{}
-	for _, groupID := range viper.GetStringSlice("nowcoderDaily.groups") {
+	for _, groupID := range viper.GetStringSlice("nowcoder_daily.groups") {
 		addUniqueString(&result, seen, groupID)
-	}
-	for _, groupID := range viper.GetIntSlice("DailyGroupList") {
-		addUniqueString(&result, seen, strconv.Itoa(groupID))
 	}
 	return result
 }
 
 func dailyPlatform() base.Platform {
-	return base.Platform(strings.TrimSpace(viper.GetString("nowcoderDaily.platform")))
+	return base.Platform(strings.TrimSpace(viper.GetString("nowcoder_daily.platform")))
 }
 
 func addUniqueString(result *[]string, seen map[string]struct{}, value string) {

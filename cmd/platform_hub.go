@@ -57,19 +57,10 @@ func newPlatformClient(name string) (base.Client, error) {
 	}
 }
 
-// selectedPlatforms 同时兼容单平台 platform 和多平台 platforms 配置。
 func selectedPlatforms() []string {
 	var configured []string
 	if err := viper.UnmarshalKey("platforms", &configured); err != nil {
 		configured = nil
-	}
-	if len(configured) == 0 {
-		configured = viper.GetStringSlice("platforms")
-	}
-	if len(configured) == 0 {
-		if platform := viper.GetString("platform"); platform != "" {
-			configured = []string{platform}
-		}
 	}
 
 	seen := make(map[string]struct{}, len(configured))

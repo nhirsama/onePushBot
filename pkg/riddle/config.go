@@ -8,20 +8,15 @@ import (
 )
 
 func Enabled() bool {
-	return viper.GetBool("riddle.Enable") || viper.GetBool("riddle.enable")
+	return viper.GetBool("riddle.enabled")
 }
 
 func groupID() string {
-	return firstNonEmpty(viper.GetString("riddle.group_id"), viper.GetString("riddleConfigGroupId"))
+	return firstNonEmpty(viper.GetString("riddle.group_id"))
 }
 
 func listenAddr() string {
-	addr := firstNonEmpty(viper.GetString("riddle.http_addr"), viper.GetString("riddle.addr"))
-	if addr == "" {
-		if port := viper.GetInt("riddle.port"); port > 0 {
-			addr = strconv.Itoa(port)
-		}
-	}
+	addr := firstNonEmpty(viper.GetString("riddle.http_addr"))
 	if addr == "" {
 		return ":12396"
 	}
