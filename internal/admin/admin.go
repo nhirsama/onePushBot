@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
-	"errors"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -46,49 +45,6 @@ type LogEntry struct {
 	Message string `json:"message"`
 }
 
-type Server struct {
-	addr       string
-	token      string
-	controller Controller
-	server     *http.Server
-}
-
-func New(addr string, token string, controller Controller) *Server {
-	if addr == "" {
-		addr = "127.0.0.1:8090"
-	}
-	s := &Server{
-		addr:       addr,
-		token:      token,
-		controller: controller,
-	}
-	s.server = &http.Server{
-		Addr:    addr,
-		Handler: s.routes(),
-	}
-	return s
-}
-
-func (s *Server) Addr() string {
-	return s.addr
-}
-
-func (s *Server) Start() error {
-	err := s.server.ListenAndServe()
-	if errors.Is(err, http.ErrServerClosed) {
-		return nil
-	}
-	return err
-}
-
-func (s *Server) Close(ctx context.Context) error {
-	return s.server.Shutdown(ctx)
-}
-
-func (s *Server) routes() http.Handler {
-	return NewHandler(s.token, s.controller)
-}
-
 func NewHandler(token string, controller Controller) http.Handler {
 	mux := http.NewServeMux()
 	rootFS, err := fs.Sub(webFS, "web")
@@ -97,21 +53,26 @@ func NewHandler(token string, controller Controller) http.Handler {
 	}
 	staticFS := http.FileServer(http.FS(rootFS))
 	mux.Handle("/", staticFS)
-	server := &Server{
+	handler := &handler{
 		token:      token,
 		controller: controller,
 	}
-	mux.Handle("/api/status", server.auth(http.HandlerFunc(server.handleStatus)))
-	mux.Handle("/api/logs", server.auth(http.HandlerFunc(server.handleLogs)))
-	mux.Handle("/api/config", server.auth(http.HandlerFunc(server.handleConfig)))
-	mux.Handle("/api/reload", server.auth(http.HandlerFunc(server.handleReload)))
-	mux.Handle("/api/restart", server.auth(http.HandlerFunc(server.handleRestart)))
+	mux.Handle("/api/status", handler.auth(http.HandlerFunc(handler.handleStatus)))
+	mux.Handle("/api/logs", handler.auth(http.HandlerFunc(handler.handleLogs)))
+	mux.Handle("/api/config", handler.auth(http.HandlerFunc(handler.handleConfig)))
+	mux.Handle("/api/reload", handler.auth(http.HandlerFunc(handler.handleReload)))
+	mux.Handle("/api/restart", handler.auth(http.HandlerFunc(handler.handleRestart)))
 	return mux
 }
 
-func (s *Server) auth(next http.Handler) http.Handler {
+type handler struct {
+	token      string
+	controller Controller
+}
+
+func (h *handler) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.token == "" {
+		if h.token == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -119,7 +80,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		if token == "" {
 			token = r.URL.Query().Get("token")
 		}
-		if token != s.token {
+		if token != h.token {
 			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
@@ -127,12 +88,12 @@ func (s *Server) auth(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+func (h *handler) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	status, err := s.controller.Status(r.Context())
+	status, err := h.controller.Status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -140,7 +101,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status)
 }
 
-func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
+func (h *handler) handleLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -149,7 +110,7 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 500
 	}
-	items, err := s.controller.Logs(r.Context(), since, limit)
+	items, err := h.controller.Logs(r.Context(), since, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -157,10 +118,10 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"logs": items})
 }
 
-func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+func (h *handler) handleConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		cfg, err := s.controller.Config(r.Context())
+		cfg, err := h.controller.Config(r.Context())
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -172,7 +133,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := s.controller.UpdateConfig(r.Context(), patch); err != nil {
+		if err := h.controller.UpdateConfig(r.Context(), patch); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -182,24 +143,24 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) handleReload(w http.ResponseWriter, r *http.Request) {
+func (h *handler) handleReload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	if err := s.controller.Reload(r.Context()); err != nil {
+	if err := h.controller.Reload(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
+func (h *handler) handleRestart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	if err := s.controller.Restart(r.Context()); err != nil {
+	if err := h.controller.Restart(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

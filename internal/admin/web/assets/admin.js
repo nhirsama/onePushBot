@@ -46,7 +46,7 @@ function activePlatforms(cfg) {
 
 function hasPlatform(cfg, name) {
     const platforms = activePlatforms(cfg);
-    if (name === 'napcat') return platforms.includes('qq') || platforms.includes('napcat');
+    if (name === 'napcat') return platforms.includes('qq');
     if (name === 'telegram') return platforms.includes('telegram_bot') || platforms.includes('telegram_user');
     return platforms.includes(name);
 }

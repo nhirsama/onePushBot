@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/spf13/viper"
@@ -47,13 +46,13 @@ func newPlatformClients() ([]base.Client, error) {
 // newPlatformClient 只做平台名称到具体实现的选择，不在这里抽象平台能力。
 func newPlatformClient(name string) (base.Client, error) {
 	switch name {
-	case "qq", "napcat", "qq_napcat":
+	case "qq":
 		return newQQNapcatClient()
-	case "telegram_bot", "tg_bot":
+	case "telegram_bot":
 		return newTelegramBotClient()
-	case "telegram_user", "tg_user":
+	case "telegram_user":
 		return newTelegramUserClient()
-	case "feishu", "lark":
+	case "feishu":
 		return newFeishuClient()
 	default:
 		return nil, fmt.Errorf("暂不支持的平台: %s", name)
@@ -69,33 +68,14 @@ func selectedPlatforms() []string {
 	seen := make(map[string]struct{}, len(configured))
 	result := make([]string, 0, len(configured))
 	for _, item := range configured {
-		name := canonicalPlatformName(item)
-		if name == "" {
+		if item == "" {
 			continue
 		}
-		if _, ok := seen[name]; ok {
+		if _, ok := seen[item]; ok {
 			continue
 		}
-		seen[name] = struct{}{}
-		result = append(result, name)
+		seen[item] = struct{}{}
+		result = append(result, item)
 	}
 	return result
-}
-
-func canonicalPlatformName(name string) string {
-	normalized := strings.TrimSpace(strings.ToLower(strings.ReplaceAll(name, "-", "_")))
-	switch normalized {
-	case "":
-		return ""
-	case "qq", "napcat", "qq_napcat":
-		return "qq"
-	case "tg_bot":
-		return "telegram_bot"
-	case "tg_user":
-		return "telegram_user"
-	case "lark":
-		return "feishu"
-	default:
-		return normalized
-	}
 }

@@ -272,7 +272,7 @@ func parseSegments(raw json.RawMessage, fallback string) ([]base.Segment, string
 
 	var textPayload string
 	if err := json.Unmarshal(raw, &textPayload); err == nil {
-		return []base.Segment{{Type: "text", Text: textPayload, Data: map[string]any{"text": textPayload}}}, textPayload
+		return parseStringMessage(textPayload, fallback)
 	}
 
 	var payload []rawSegment
@@ -304,6 +304,100 @@ func parseSegments(raw json.RawMessage, fallback string) ([]base.Segment, string
 		fullText = fallback
 	}
 	return segments, fullText
+}
+
+func parseStringMessage(payload string, fallback string) ([]base.Segment, string) {
+	if payload == "" {
+		if fallback == "" {
+			return nil, ""
+		}
+		return []base.Segment{{Type: "text", Text: fallback, Data: map[string]any{"text": fallback}}}, fallback
+	}
+
+	segments := make([]base.Segment, 0, 4)
+	fullText := strings.Builder{}
+	remaining := payload
+	for len(remaining) > 0 {
+		start := strings.Index(remaining, "[CQ:")
+		if start < 0 {
+			appendTextSegment(&segments, &fullText, remaining)
+			break
+		}
+		if start > 0 {
+			appendTextSegment(&segments, &fullText, remaining[:start])
+			remaining = remaining[start:]
+		}
+
+		end := strings.IndexByte(remaining, ']')
+		if end < 0 {
+			appendTextSegment(&segments, &fullText, remaining)
+			break
+		}
+
+		segment, ok := parseCQSegment(remaining[4:end])
+		if !ok {
+			appendTextSegment(&segments, &fullText, remaining[:end+1])
+		} else {
+			segments = append(segments, segment)
+		}
+		remaining = remaining[end+1:]
+	}
+
+	if len(segments) == 0 {
+		return []base.Segment{{Type: "text", Text: payload, Data: map[string]any{"text": payload}}}, payload
+	}
+
+	text := fullText.String()
+	if text == "" {
+		text = fallback
+	}
+	return segments, text
+}
+
+func appendTextSegment(segments *[]base.Segment, fullText *strings.Builder, text string) {
+	if text == "" {
+		return
+	}
+	*segments = append(*segments, base.Segment{
+		Type: "text",
+		Text: text,
+		Data: map[string]any{"text": text},
+	})
+	fullText.WriteString(text)
+}
+
+func parseCQSegment(payload string) (base.Segment, bool) {
+	if payload == "" {
+		return base.Segment{}, false
+	}
+
+	parts := strings.Split(payload, ",")
+	segmentType := parts[0]
+	if segmentType == "" {
+		return base.Segment{}, false
+	}
+
+	data := make(map[string]any, len(parts)-1)
+	for _, part := range parts[1:] {
+		key, value, ok := strings.Cut(part, "=")
+		if !ok || key == "" {
+			return base.Segment{}, false
+		}
+		data[key] = decodeCQText(value)
+	}
+
+	return base.Segment{
+		Type: segmentType,
+		Data: data,
+	}, true
+}
+
+func decodeCQText(value string) string {
+	value = strings.ReplaceAll(value, "&#91;", "[")
+	value = strings.ReplaceAll(value, "&#93;", "]")
+	value = strings.ReplaceAll(value, "&#44;", ",")
+	value = strings.ReplaceAll(value, "&amp;", "&")
+	return value
 }
 
 func extractSegmentText(segment rawSegment) string {

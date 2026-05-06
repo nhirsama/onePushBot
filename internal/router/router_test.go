@@ -323,12 +323,6 @@ func TestMatchMentionedUser(t *testing.T) {
 	if !match(event) {
 		t.Fatal("预期匹配 at 目标")
 	}
-
-	event.Message.Segments = nil
-	event.Message.Text = "[CQ:at,qq=10000] 你好"
-	if !match(event) {
-		t.Fatal("预期兼容 CQ 文本 at")
-	}
 }
 
 func waitCount(t *testing.T, handler *captureHandler, want int) {

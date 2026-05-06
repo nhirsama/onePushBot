@@ -61,6 +61,47 @@ func TestMapEnvelopeToEvent_GroupMessage(t *testing.T) {
 	}
 }
 
+func TestMapEnvelopeToEvent_GroupMessageStringPayloadParsesCQAt(t *testing.T) {
+	raw := rawEnvelope{
+		Time:        1714470000,
+		PostType:    "message",
+		MessageType: "group",
+		MessageID:   float64(1001),
+		GroupID:     float64(2001),
+		UserID:      float64(3001),
+		GroupName:   "test-group",
+		RawMessage:  "@bot hello",
+		Message:     json.RawMessage(`"[CQ:at,qq=10000] hello"`),
+	}
+
+	event, ok, err := mapEnvelopeToEvent(raw, "")
+	if err != nil {
+		t.Fatalf("mapEnvelopeToEvent returned error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected event to be mapped")
+	}
+	if event.Message == nil {
+		t.Fatalf("expected message payload")
+	}
+	if len(event.Message.Segments) != 2 {
+		t.Fatalf("expected 2 segments, got %d", len(event.Message.Segments))
+	}
+	if event.Message.Segments[0].Type != "at" {
+		t.Fatalf("expected first segment to be at, got %s", event.Message.Segments[0].Type)
+	}
+	data, ok := event.Message.Segments[0].Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected at segment data map, got %T", event.Message.Segments[0].Data)
+	}
+	if got := data["qq"]; got != "10000" {
+		t.Fatalf("unexpected at payload: %#v", got)
+	}
+	if event.Message.Text != " hello" {
+		t.Fatalf("expected normalized text, got %q", event.Message.Text)
+	}
+}
+
 func TestMapEnvelopeToEvent_MessageSent(t *testing.T) {
 	raw := rawEnvelope{
 		Time:        1714470000,

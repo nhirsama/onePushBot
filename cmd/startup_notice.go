@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	base "github.com/nhirsama/onePushBot/internal/platform"
@@ -13,7 +14,7 @@ import (
 
 // notifyStarted 在平台和外部入口启动后发送状态通知；未配置目标时直接跳过。
 func (a *app) notifyStarted(ctx context.Context) {
-	ownerChatID := firstNonEmpty(viper.GetString("telegram_bot.owner_chat_id"))
+	ownerChatID := strings.TrimSpace(viper.GetString("telegram_bot.owner_chat_id"))
 	if ownerChatID == "" {
 		return
 	}

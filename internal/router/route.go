@@ -53,7 +53,7 @@ func MatchMentionedUser(userID string) MatchFunc {
 				return true
 			}
 		}
-		return strings.Contains(event.Message.Text, "[CQ:at,qq="+userID)
+		return false
 	}
 }
 

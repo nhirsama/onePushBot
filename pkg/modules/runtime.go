@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/auto_set_msg_emoji_like"
@@ -135,23 +134,18 @@ func selectModules(enabled []string) ([]Module, error) {
 	seen := make(map[string]struct{}, len(enabled))
 	result := make([]Module, 0, len(enabled))
 	for _, item := range enabled {
-		name := normalizeModuleName(item)
-		if name == "" {
+		if item == "" {
 			continue
 		}
-		if _, ok := seen[name]; ok {
+		if _, ok := seen[item]; ok {
 			continue
 		}
-		module, ok := catalog[name]
+		module, ok := catalog[item]
 		if !ok {
 			return nil, fmt.Errorf("unknown module: %s", item)
 		}
-		seen[name] = struct{}{}
+		seen[item] = struct{}{}
 		result = append(result, module)
 	}
 	return result, nil
-}
-
-func normalizeModuleName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
 }
