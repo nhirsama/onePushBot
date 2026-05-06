@@ -308,6 +308,32 @@ func TestGetMessage(t *testing.T) {
 	}
 }
 
+func TestGetForwardMessageUsesIDParam(t *testing.T) {
+	h := newActionHarness(t, func(req rawRequest) rawResponseEnvelope {
+		if req.Action != "get_forward_msg" {
+			t.Fatalf("unexpected action: %s", req.Action)
+		}
+		params := mustMap(t, req.Params)
+		if params["id"] != "forward-123" {
+			t.Fatalf("unexpected id: %#v", params["id"])
+		}
+		if _, exists := params["message_id"]; exists {
+			t.Fatalf("unexpected message_id param: %#v", params["message_id"])
+		}
+		return rawResponseEnvelope{
+			Status:  "ok",
+			RetCode: 0,
+			Echo:    req.Echo,
+			Data:    json.RawMessage(`{"messages":[]}`),
+		}
+	})
+	defer h.close()
+
+	if _, err := h.client.GetForwardMessage(context.Background(), "forward-123"); err != nil {
+		t.Fatalf("GetForwardMessage returned error: %v", err)
+	}
+}
+
 type actionHarness struct {
 	client  *client
 	server  *httptest.Server

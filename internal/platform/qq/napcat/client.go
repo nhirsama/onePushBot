@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -199,110 +198,6 @@ func (c *client) Call(ctx context.Context, action string, params any) (json.RawM
 			return nil, fmt.Errorf("napcat action %s 失败: retcode=%d", action, reply.RetCode)
 		}
 		return reply.Data, nil
-	}
-}
-
-func (c *client) SendGroupText(ctx context.Context, groupID string, text string) error {
-	_, err := c.Call(ctx, "send_group_msg", map[string]any{
-		"group_id": toNapcatID(groupID),
-		"message": []map[string]any{
-			{
-				"type": "text",
-				"data": map[string]any{"text": text},
-			},
-		},
-	})
-	return err
-}
-
-func (c *client) SendPrivateText(ctx context.Context, userID string, text string) error {
-	_, err := c.Call(ctx, "send_private_msg", map[string]any{
-		"user_id": toNapcatID(userID),
-		"message": []map[string]any{
-			{
-				"type": "text",
-				"data": map[string]any{"text": text},
-			},
-		},
-	})
-	return err
-}
-
-func (c *client) SendLike(ctx context.Context, userID string, times int) error {
-	return c.callNoResult(ctx, "send_like", map[string]any{
-		"user_id": toNapcatID(userID),
-		"times":   times,
-	})
-}
-
-func (c *client) SendPoke(ctx context.Context, groupID string, userID string) error {
-	params := map[string]any{
-		"group_id":  toNapcatID(groupID),
-		"target_id": toNapcatID(userID),
-	}
-	if c.cfg.SelfID != "" {
-		params["user_id"] = toNapcatID(c.cfg.SelfID)
-	}
-	return c.callNoResult(ctx, "send_poke", params)
-}
-
-func (c *client) SetMsgEmojiLike(ctx context.Context, messageID string, emojiID int, set bool) error {
-	return c.callNoResult(ctx, "set_msg_emoji_like", map[string]any{
-		"message_id": messageID,
-		"emoji_id":   emojiID,
-		"set":        set,
-	})
-}
-
-func (c *client) GetGroupMemberInfo(ctx context.Context, groupID string, userID string, noCache bool) (*base.GroupMemberInfo, error) {
-	data, err := c.Call(ctx, "get_group_member_info", map[string]any{
-		"group_id": toNapcatID(groupID),
-		"user_id":  toNapcatID(userID),
-		"no_cache": noCache,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var member rawGroupMemberInfo
-	if err := json.Unmarshal(data, &member); err != nil {
-		return nil, fmt.Errorf("解析群成员信息失败: %w", err)
-	}
-	return member.toDomain(), nil
-}
-
-func toNapcatID(id string) any {
-	trimmed := strings.TrimSpace(id)
-	if trimmed == "" {
-		return id
-	}
-	if value, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
-		return value
-	}
-	return id
-}
-
-func (m rawGroupMemberInfo) toDomain() *base.GroupMemberInfo {
-	return &base.GroupMemberInfo{
-		GroupID:         normalizeID(m.GroupID),
-		UserID:          normalizeID(m.UserID),
-		Nickname:        m.Nickname,
-		Card:            m.Card,
-		Sex:             m.Sex,
-		Age:             m.Age,
-		JoinTime:        m.JoinTime,
-		LastSentTime:    m.LastSentTime,
-		Level:           m.Level,
-		QQLevel:         m.QQLevel,
-		Role:            m.Role,
-		Title:           m.Title,
-		Area:            m.Area,
-		Unfriendly:      m.Unfriendly,
-		TitleExpireTime: m.TitleExpireTime,
-		CardChangeable:  m.CardChangeable,
-		ShutUpTimestamp: m.ShutUpTimestamp,
-		IsRobot:         m.IsRobot,
-		QAge:            m.QAge,
 	}
 }
 
