@@ -4,13 +4,20 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/nhirsama/onePushBot/internal/router"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
+	"github.com/nhirsama/onePushBot/pkg/auto_set_msg_emoji_like"
+	groupmessagetokendb "github.com/nhirsama/onePushBot/pkg/group_message_token_db"
+	nowcoderTracker "github.com/nhirsama/onePushBot/pkg/nowcoder_tracker"
+	"github.com/nhirsama/onePushBot/pkg/plat"
+	"github.com/nhirsama/onePushBot/pkg/reply"
+	"github.com/nhirsama/onePushBot/pkg/riddle"
+	"github.com/nhirsama/onePushBot/pkg/sudo"
 )
 
 type Dependencies struct {
-	Clients platformclient.Source
+	Plat plat.Clients
 }
 
 type HTTPRegistrar interface {
@@ -30,23 +37,15 @@ type Runtime struct {
 	modules []Module
 }
 
-var registeredModules []Module
-
-func register(module Module) {
-	registeredModules = append(registeredModules, module)
-}
-
-func modules() []Module {
-	result := make([]Module, len(registeredModules))
-	copy(result, registeredModules)
-	return result
-}
-
-func NewRuntime(clients platformclient.Source) Runtime {
-	return Runtime{
-		deps:    Dependencies{Clients: clients},
-		modules: modules(),
+func NewRuntime(deps Dependencies, enabled []string) (Runtime, error) {
+	items, err := selectModules(enabled)
+	if err != nil {
+		return Runtime{}, err
 	}
+	return Runtime{
+		deps:    deps,
+		modules: items,
+	}, nil
 }
 
 func (r Runtime) RegisterRoutes(rt router.Router) error {
@@ -83,4 +82,76 @@ func (r Runtime) RegisterHTTP(mux HTTPRegistrar) error {
 		}
 	}
 	return nil
+}
+
+func builtinModules() map[string]Module {
+	return map[string]Module{
+		"auto_set_msg_emoji_like": {
+			Name: "auto_set_msg_emoji_like",
+			RegisterRoutes: func(rt router.Router, deps Dependencies) error {
+				return autoSetMsgEmojiLike.Register(rt, deps.Plat)
+			},
+		},
+		"group_message_token_db": {
+			Name: "group_message_token_db",
+			RegisterRoutes: func(rt router.Router, deps Dependencies) error {
+				return groupmessagetokendb.Register(rt)
+			},
+		},
+		"nowcoder_daily": {
+			Name: "nowcoder_daily",
+			Start: func(ctx context.Context, deps Dependencies) error {
+				nowcoderTracker.StartDaily(ctx, deps.Plat)
+				return nil
+			},
+		},
+		"reply": {
+			Name: "reply",
+			RegisterRoutes: func(rt router.Router, deps Dependencies) error {
+				return reply.Register(rt, deps.Plat)
+			},
+		},
+		"riddle": {
+			Name: "riddle",
+			RegisterRoutes: func(rt router.Router, deps Dependencies) error {
+				return riddle.Register(rt, deps.Plat)
+			},
+			RegisterHTTP: func(mux HTTPRegistrar, deps Dependencies) error {
+				_ = deps
+				return riddle.RegisterHTTP(mux)
+			},
+		},
+		"sudo": {
+			Name: "sudo",
+			RegisterRoutes: func(rt router.Router, deps Dependencies) error {
+				return sudo.Register(rt, deps.Plat)
+			},
+		},
+	}
+}
+
+func selectModules(enabled []string) ([]Module, error) {
+	catalog := builtinModules()
+	seen := make(map[string]struct{}, len(enabled))
+	result := make([]Module, 0, len(enabled))
+	for _, item := range enabled {
+		name := normalizeModuleName(item)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		module, ok := catalog[name]
+		if !ok {
+			return nil, fmt.Errorf("unknown module: %s", item)
+		}
+		seen[name] = struct{}{}
+		result = append(result, module)
+	}
+	return result, nil
+}
+
+func normalizeModuleName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }

@@ -8,10 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Enabled() bool {
-	return viper.GetBool("reply.enabled")
-}
-
 func configuredSelfID() string {
 	return strings.TrimSpace(viper.GetString("qq.self_id"))
 }
@@ -31,13 +27,4 @@ func matchMentionedSelf() router.MatchFunc {
 
 func llmAPITokenConfigured() bool {
 	return strings.TrimSpace(viper.GetString("llm.api_token")) != ""
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

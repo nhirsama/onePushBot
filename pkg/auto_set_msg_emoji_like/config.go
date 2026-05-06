@@ -7,10 +7,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Enabled() bool {
-	return viper.GetBool("auto_set_msg_emoji_like.enabled")
-}
-
 func emojiLikesForUser(userID string) []int {
 	settings := emojiLikeSettings()
 	if len(settings) == 0 {

@@ -9,18 +9,9 @@ import (
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/info_entropy"
-	"github.com/spf13/viper"
 )
 
-func Enabled() bool {
-	return viper.GetBool("group_message_token_db.enabled")
-}
-
 func Register(rt router.Router) error {
-	if !Enabled() {
-		return nil
-	}
-
 	db := infoEntropy.LoadDB()
 	if db == nil {
 		log.Println("group_message_token_db 初始化失败，跳过")

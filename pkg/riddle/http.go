@@ -16,9 +16,6 @@ type response struct {
 func RegisterHTTP(mux interface {
 	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
 }) error {
-	if !Enabled() {
-		return nil
-	}
 	if mux == nil {
 		return fmt.Errorf("http mux 不能为空")
 	}

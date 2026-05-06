@@ -118,6 +118,7 @@ func randomToken() string {
 
 func setDefaults() {
 	viper.SetDefault("admin.addr", "127.0.0.1:8090")
+	viper.SetDefault("modules", []string{})
 	viper.SetDefault("router.broker_buffer", 128)
 	viper.SetDefault("qq.heartbeat_timeout", 90)
 	viper.SetDefault("feishu.webhook_path", "/feishu/events")

@@ -6,14 +6,10 @@ import (
 
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
+	"github.com/nhirsama/onePushBot/pkg/plat"
 )
 
-func Register(rt router.Router, clients platformclient.Source) error {
-	if !Enabled() {
-		return nil
-	}
-
+func Register(rt router.Router, clients plat.Clients) error {
 	return rt.Register(router.Route{
 		Name: "auto_set_msg_emoji_like",
 		Filter: base.EventFilter{

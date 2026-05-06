@@ -8,7 +8,6 @@ import (
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/modules"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
 	"github.com/spf13/viper"
 )
 
@@ -35,8 +34,10 @@ func newApp(controller admin.Controller) (*app, error) {
 	if err != nil {
 		return nil, err
 	}
-	clients := platformclient.NewSource(hub)
-	moduleRuntime := modules.NewRuntime(clients)
+	moduleRuntime, err := newModuleRuntime(hub)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := moduleRuntime.RegisterRoutes(rt); err != nil {
 		return nil, err

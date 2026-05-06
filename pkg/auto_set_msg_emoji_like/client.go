@@ -3,14 +3,17 @@ package autoSetMsgEmojiLike
 import (
 	"context"
 
-	base "github.com/nhirsama/onePushBot/internal/platform"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
+	"github.com/nhirsama/onePushBot/pkg/plat"
 )
 
 type Client interface {
 	SetMsgEmojiLike(ctx context.Context, messageID string, emojiID int, set bool) error
 }
 
-func clientFromSource(source platformclient.Source) (Client, bool) {
-	return platformclient.Get[Client](source, base.PlatformQQ)
+func clientFromSource(clients plat.Clients) (Client, bool) {
+	if clients.QQ == nil {
+		return nil, false
+	}
+	client, ok := clients.QQ.(Client)
+	return client, ok
 }

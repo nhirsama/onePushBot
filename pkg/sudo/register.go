@@ -9,7 +9,7 @@ import (
 	"github.com/nhirsama/onePushBot/internal/router"
 	"github.com/nhirsama/onePushBot/pkg/auth"
 	"github.com/nhirsama/onePushBot/pkg/llm"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
+	"github.com/nhirsama/onePushBot/pkg/plat"
 	"github.com/spf13/viper"
 )
 
@@ -17,11 +17,7 @@ type authenticator interface {
 	Authenticate(message []byte) (string, bool)
 }
 
-func Register(rt router.Router, clients platformclient.Source) error {
-	if !Enabled() {
-		return nil
-	}
-
+func Register(rt router.Router, clients plat.Clients) error {
 	authenticator := newAuthenticator()
 	return rt.Register(router.Route{
 		Name: "sudo",

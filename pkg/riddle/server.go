@@ -8,14 +8,10 @@ import (
 
 	base "github.com/nhirsama/onePushBot/internal/platform"
 	"github.com/nhirsama/onePushBot/internal/router"
-	"github.com/nhirsama/onePushBot/pkg/platform_client"
+	"github.com/nhirsama/onePushBot/pkg/plat"
 )
 
-func Register(rt router.Router, clients platformclient.Source) error {
-	if !Enabled() {
-		return nil
-	}
-
+func Register(rt router.Router, clients plat.Clients) error {
 	groupID := groupID()
 	if groupID == "" {
 		log.Println("riddle 已启用，但未配置 riddle.group_id，仅启动 HTTP 查询接口")

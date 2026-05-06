@@ -6,10 +6,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Enabled() bool {
-	return viper.GetBool("riddle.enabled")
-}
-
 func groupID() string {
 	return firstNonEmpty(viper.GetString("riddle.group_id"))
 }

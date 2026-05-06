@@ -65,14 +65,15 @@ go run ./
 | 分组                          | 说明                                                  |
 |:----------------------------|:----------------------------------------------------|
 | `platforms`                 | 已启用平台列表，例如 `["qq","telegram_bot"]`                  |
+| `modules`                   | 已启用模块列表，例如 `["reply","sudo","riddle"]`              |
 | `qq.*`                      | NapCat / QQ 平台配置                                    |
 | `telegram_bot.*`            | Telegram Bot 配置                                     |
 | `telegram_user.*`           | Telegram 用户态配置                                      |
 | `feishu.*`                  | 飞书平台配置                                              |
 | `llm.*`                     | 大模型配置，例如 `llm.api_token`、`llm.model`、`llm.base_url` |
-| `reply.*`                   | `reply` 模块配置，开关使用 `reply.enabled`                   |
-| `sudo.*`                    | `sudo` 模块配置，开关使用 `sudo.enabled`                     |
-| `riddle.*`                  | `riddle` 模块配置，开关使用 `riddle.enabled`                 |
+| `reply.*`                   | `reply` 模块配置                                        |
+| `sudo.*`                    | `sudo` 模块配置                                         |
+| `riddle.*`                  | `riddle` 模块配置                                       |
 | `auto_set_msg_emoji_like.*` | 自动表情回应模块配置                                          |
 | `group_message_token_db.*`  | 群消息分词统计模块配置                                         |
 | `nowcoder_daily.*`          | 牛客每日一题推送配置                                          |
