@@ -179,18 +179,22 @@ func (r *router) Start(ctx context.Context) error {
 	}
 
 	r.wg.Add(1)
-	go r.forward(runCtx)
+	go r.forward(runCtx, sub)
 	return nil
 }
 
-func (r *router) forward(ctx context.Context) {
+func (r *router) forward(ctx context.Context, sub base.Subscription) {
 	defer r.wg.Done()
+	if sub == nil {
+		return
+	}
+	events := sub.Events()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case event, ok := <-r.sub.Events():
+		case event, ok := <-events:
 			if !ok {
 				return
 			}

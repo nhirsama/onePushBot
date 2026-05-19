@@ -22,8 +22,8 @@ var (
 	activeStore store.Store
 )
 
-// OpenDefaultStore 打开默认 SQLite 存储并加载 settings 到运行时配置。
-func OpenDefaultStore() error {
+// OpenStore 打开 SQLite 存储并加载 settings 到运行时配置。
+func OpenStore() error {
 	kv, err := store.OpenSQLite(DBPath())
 	if err != nil {
 		return err
@@ -33,6 +33,11 @@ func OpenDefaultStore() error {
 		return err
 	}
 	return nil
+}
+
+// OpenDefaultStore 保留旧入口，便于兼容已有调用。
+func OpenDefaultStore() error {
+	return OpenStore()
 }
 
 // UseStore 允许 cmd 或测试注入存储，config 包只保留运行时读取适配。

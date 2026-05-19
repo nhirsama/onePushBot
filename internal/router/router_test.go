@@ -178,6 +178,22 @@ func TestRouterRejectsInvalidRoute(t *testing.T) {
 	}
 }
 
+func TestRouterCloseImmediatelyAfterStart(t *testing.T) {
+	bus := base.NewMemoryBus()
+	rt, err := New(bus, Options{})
+	if err != nil {
+		t.Fatalf("创建 router 失败: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := rt.Start(ctx); err != nil {
+		t.Fatalf("启动 router 失败: %v", err)
+	}
+
+	closeRouterForTest(t, rt)
+}
+
 func TestRouterDispatchByMessageChatType(t *testing.T) {
 	bus := base.NewMemoryBus()
 	rt, err := New(bus, Options{BrokerBuffer: 16})
